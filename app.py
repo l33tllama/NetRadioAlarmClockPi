@@ -11,7 +11,7 @@ PIN_CLK = 22
 PIN_DT = 23
 
 address = 0x08
-bus = SMBus(1)
+bus = None #SMBus(1)
 client = None
 
 counter = 0
@@ -23,38 +23,34 @@ class RotEncThread(threading.Thread):
 
     def __init__(self):
         threading.Thread.__init__(self)
-        self.clkState = 0
-        self.dtState = 0
-        self.clk_last_state = 0
-        self.counter = 0
-        self.volume = 100
+        self.read_volume = 0
+        self.last_read_volume = 0
         self.vol_change_func = None
+        self.arduino_addr = 0x08
+        self.bus = SMBus(1)
+        self.get_vol_arr = [103, 101, 116, 118, 0]
     
     def set_vol_change_func(self, func):
         self.vol_change_func = func
 
     def run(self):
-        try:
-            while True:
-                lock.acquire()
-                try:
-                    self.clkState = GPIO.input(PIN_CLK)
-                    self.dtState = GPIO.input(PIN_DT)
-                    if self.clkState != self.clk_last_state:
-                        if self.dtState != self.clkState:
-                            if self.counter < self.volume:
-                                self.counter += 1
-                        else:
-                            if self.counter > 0:
-                                self.counter -= 1 
-                        self.vol_change_func(self.counter) 
-                        print(str(self.counter))
-                    self.clk_last_state = self.clkState
-                finally:
-                    lock.release()
-                    time.sleep(0.001)
-        finally:
-            GPIO.cleanup()
+        #try:
+        while True:
+            #lock.acquire()
+            try:
+                #self.bus.write_i2c_block_data(self.arduino_addr, 0x00, self.get_vol_arr)
+                self.bus.write_byte(self.arduino_addr, 0x01)
+                time.sleep(0.1)
+                self.read_volume = self.bus.read_byte_data(self.arduino_addr, 0)
+                #print(self.read_volume)
+                if self.read_volume != self.last_read_volume:
+                    self.vol_change_func(self.read_volume)
+                self.last_read_volume = self.read_volume
+            finally:
+                #lock.release()
+                time.sleep(0.01)
+       #finally:
+        #    GPIO.cleanup()
 
 def setup_gpio():
     GPIO.setmode(GPIO.BCM)
@@ -66,15 +62,18 @@ def write_number(value):
 	return -1
 
 def start_rot_enc_thread():
-    clk_last_state = GPIO.input(PIN_CLK)
+    #clk_last_state = GPIO.input(PIN_CLK)
     rot_enc_thread = None
     try:
        rot_enc_thread = RotEncThread()
-       rot_enc_thread.set_vol_change_func(send_volume)
+       rot_enc_thread.set_vol_change_func(handle_volume)
        rot_enc_thread.daemon = True
        rot_enc_thread.start()
     except:
         print("Error starting thread")
+
+def handle_volume(volume):
+    print("Read volume: " + str(volume))
 
 def write_data(data):
 	byte_value = StringToBytes(data)
@@ -88,6 +87,11 @@ def read_data(length):
     #block = bus.read_i2c_block_data(address, 0x00, length)
     print(str(data))
     return data
+
+def read_byte():
+    val = bus.read_byte_data(address, 0)
+    return val
+
 
 def StringToBytes(val):
     ret_val = []
@@ -113,10 +117,10 @@ def read_write(command, length):
         print(read.buf[i])
 
 def get_volume():
-    #write_data("getv:abc")
-    #volume = read_data(4)
-    read_write("getv", 4)
-    #return volume
+    write_data("getv")
+    volume = read_byte()
+    #read_write("getv", 4)
+    return volume
 
 #write_data("Python FTW ")
 
@@ -141,7 +145,7 @@ def send_time_idle():
     localtime = time.localtime(time.time())
     print("Local time: " + time.asctime(localtime))
     time_str = str(localtime.tm_wday+1)
-    time_str += "-" + str(localtime.tm_mday)
+    time_str += "-" + str(localtime.tm_mday).zfill(2)
     time_str += "-" + str(localtime.tm_mon).zfill(2)
     time_str += "-" + str(localtime.tm_year)
     time_str += "-" + str(localtime.tm_hour).zfill(2)
@@ -150,18 +154,18 @@ def send_time_idle():
     print("String to send: " + time_str)
     write_data("clki:"+time_str)
 
-setup_gpio()
-#start_rot_enc_thread()
-send_time_idle()
-time.sleep(0.5)
+#setup_gpio()
+start_rot_enc_thread()
+#send_time_idle()
+#time.sleep(0.5)
 #send_time_idle()
 #vol = get_volume()
-test = bus.read_i2c_block_data(address, 0, 4)
+#test = bus.read_i2c_block_data(address, 0, 4)
 #test = BytesToString(read_data(20))
-print(test)
+#print(vol)
 
 #bytess = StringToBytes("Hello")
 #print(bytess)
 
-#while True:
-    #time.sleep(1)
+while True:
+    time.sleep(1)
