@@ -1,7 +1,14 @@
 from mpd import MPDClient, ConnectionError
 from smbus2 import i2c_msg, SMBus
+import RPi.GPIO as GPIO
 import time
 import threading
+import datetime
+import pickle
+import os.path
+from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 
 def StringToBytes(val):
     ret_val = []
@@ -66,10 +73,46 @@ class Scheduler():
 class GoogleCalendar():
 
     def __init__(self):
-        pass
+
+        SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+        """Shows basic usage of the Google Calendar API.
+        Prints the start and name of the next 10 events on the user's calendar.
+        """
+        creds = None
+        # The file token.pickle stores the user's access and refresh tokens, and is
+        # created automatically when the authorization flow completes for the first
+        # time.
+        if os.path.exists('token.pickle'):
+            with open('token.pickle', 'rb') as token:
+                creds = pickle.load(token)
+        # If there are no (valid) credentials available, let the user log in.
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    'credentials.json', SCOPES)
+                creds = flow.run_local_server()
+            # Save the credentials for the next run
+            with open('token.pickle', 'wb') as token:
+                pickle.dump(creds, token)
+
+        self.service = build('calendar', 'v3', credentials=creds)
 
     def get_alarm_events(self):
-        pass
+        # Call the Calendar API
+        now = datetime.datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
+        print('Getting the upcoming 10 events')
+        events_result = self.service.events().list(calendarId='primary', timeMin=now,
+                                            maxResults=10, singleEvents=True,
+                                            orderBy='startTime').execute()
+        events = events_result.get('items', [])
+
+        if not events:
+            print('No upcoming events found.')
+        for event in events:
+            start = event['start'].get('dateTime', event['start'].get('date'))
+            print(start, event['summary'])
 
 i2c_lock = False
 
@@ -112,6 +155,8 @@ class RotEncThread(threading.Thread):
                         print("OS error (read)")
                     finally:
                         i2c_lock = False
+                else:
+                    print("I2C lock receiving volume.")
                 #print(self.read_volume)
                 if self.read_volume != self.last_read_volume:
                     self.vol_change_func(self.read_volume)
@@ -150,6 +195,8 @@ class ArduinoController():
             i2c_lock = True
             self.bus.write_i2c_block_data(self.address, 0x00, byte_value)
             i2c_lock = False
+        else:
+            print("Can't write - i2c lock")
         
     
     def update_lcd_playing(self, station_name, artist, title, date_time):
@@ -168,6 +215,33 @@ class ArduinoController():
         print("String to send: " + time_str)
         self.write_data("clki:"+time_str)
 
+class RPiGPIO():
+
+    def __init__(self):
+        self.reset_pin = 17
+        self.snooze_btn_pin = 27
+        self.snooze_btn_led_pin = 22
+        GPIO.setmode(GPIO.BCM)
+        # Reset line
+        GPIO.setup(self.reset_pin, GPIO.OUT)
+        # snooze button
+        GPIO.setup(self.snooze_btn_pin, GPIO.IN, pull_up_down = GPIO.PUD_UP)
+        # snooze button LED
+        GPIO.setup(self.snooze_btn_led_pin, GPIO.OUT)
+        GPIO.output(self.reset_pin, GPIO.HIGH)
+    
+    def snooze_button_led_on(self):
+        GPIO.output(self.snooze_btn_led_pin, GPIO.HIGH)
+
+    def snooze_button_lef_off(self):
+        GPIO.output(self.snooze_btn_led_pin, GPIO.LOW)
+    
+    def reset_arduino(self):
+        GPIO.output(self.reset_pin, GPIO.LOW)
+        time.sleep(0.1)
+        GPIO.output(self.reset_pin, GPIO.HIGH)
+        time.sleep(3.5)
+
 class NetRadioAlarmClock():
 
     def __init__(self):
@@ -175,6 +249,9 @@ class NetRadioAlarmClock():
         self.sched = Scheduler()
         self.gcal = GoogleCalendar()
         self.arduino = ArduinoController(0x08)
+        self.gpio = RPiGPIO()
+
+        self.gpio.reset_arduino()
         
         self.arduino.set_vol_change_callback(self.mpdc.set_volume)
         self.arduino.start_rot_enc_thread()
@@ -185,9 +262,13 @@ class NetRadioAlarmClock():
         print("Title: " + self.mpdc.get_title())
 
         self.arduino.update_lcd_idle()
+        self.gpio.snooze_button_led_on()
 
         while True:
-            time.sleep(1)
+            self.gpio.snooze_button_led_on()
+            time.sleep(0.5)
+            self.gpio.snooze_button_lef_off()
+            time.sleep(0.5)
 
 if __name__ == "__main__":
     clock = NetRadioAlarmClock()
