@@ -9,6 +9,7 @@ import os.path
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+import datetime
 
 def StringToBytes(val):
     ret_val = []
@@ -62,13 +63,48 @@ class MPDController():
 
 class Scheduler():
     def __init__(self):
-        pass
-    
-    def schedule_event(self, time, event):
+        self.sync_events = []
+        self.fixed_events = []
+
+    def remove_old_events(self):
         pass
 
-    def cancel_events(self):
-        pass
+    def sync_events(self, events, event_func):
+
+        # Look for and remove events in local db but not on google calendar
+        for s_event in self.sync_events:
+            if not s_event in events:
+                self.sync_events.remove(s_event)
+
+        # Look for and add event on google calendar but not in local db
+        for event in events:
+            if not event in self.sync_events:
+                self.sync_events.append(event)
+                event_time = datetime.datetime.strptime(event, "%Y-%m-%d %H:%M:%S")
+                delta_time = (datetime.datetime.now() - event_time).total_seconds()
+                #Schedule event
+                threading.Timer(delta_time, event_func, args=[event]).start()
+    
+
+    def schedule_event(self, time, event_func):
+        time_str = time.strftime("%Y-%m-%d %H:%M:%S")
+
+        found_event = False
+        if time_str in self.fixed_events:
+            found_event = True
+        else:
+            self.fixed_events.append(time_str)
+
+        delta_time = (datetime.datetime.now() - time).total_seconds()
+        
+        if not found_event:
+            threading.Timer(delta_time, event_func, args=[time_str]).start()
+        else:
+            print("Event already exists! Not adding.")
+
+    def remove_event(self, event):
+        if event in self.events:
+            self.events.remove(event)
 
 class GoogleCalendar():
 
@@ -100,6 +136,8 @@ class GoogleCalendar():
         self.service = build('calendar', 'v3', credentials=creds)
 
     def get_alarm_events(self):
+        alarm_events = []
+
         # Call the Calendar API
         now = datetime.datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
         print('Getting the upcoming 10 events')
@@ -111,8 +149,18 @@ class GoogleCalendar():
         if not events:
             print('No upcoming events found.')
         for event in events:
-            start = event['start'].get('dateTime', event['start'].get('date'))
-            print(start, event['summary'])
+            if event['summary'] == "Leo's Alarm":   
+                start = event['start'].get('dateTime', event['start'].get('date'))
+                start = start[:22] + start[23:]
+                print("Leo's Alarm at: " + start)
+                # 2019-03-11T07:00:00+11:00
+                date = datetime.datetime.strptime(start, "%Y-%m-%dT%H:%M:%S%z")
+                alarm_events.append(date.strftime("%Y-%m-%d %H:%M:%S"))
+                print("datetime loaded? " + date.strftime("%Y-%m-%d %H:%M:%S"))
+
+        return alarm_events
+        #start = event['start'].get('dateTime', event['start'].get('date'))
+        #print(start, event['summary'])
 
 i2c_lock = False
 
@@ -247,16 +295,18 @@ class NetRadioAlarmClock():
     def __init__(self):
         self.mpdc = MPDController()
         self.sched = Scheduler()
-        self.gcal = GoogleCalendar()
+        #self.gcal = GoogleCalendar()
         self.arduino = ArduinoController(0x08)
         self.gpio = RPiGPIO()
+        self.alarm_running = True
 
         self.gpio.reset_arduino()
         
         self.arduino.set_vol_change_callback(self.mpdc.set_volume)
         self.arduino.start_rot_enc_thread()
 
-    def run(self):
+    
+    def setup(self):
         print("Station: " + self.mpdc.get_station_name())
         print("Artist: " + self.mpdc.get_artist())
         print("Title: " + self.mpdc.get_title())
@@ -264,12 +314,34 @@ class NetRadioAlarmClock():
         self.arduino.update_lcd_idle()
         self.gpio.snooze_button_led_on()
 
+        # display idle screen
+
+        # read events from google calendar
+        self.update_events()
+
+    def update_events(self):
+        self.gcal = GoogleCalendar()
+        # get events
+        alarm_events = self.gcal.get_alarm_events()
+
+        self.sched.sync_events(alarm_events, self.alarm_event)
+
+        # scedule next event update
+        #next_update_time = datetime.datetime.now() + datetime.timedelta()
+        self.sched.schedule_event()
+
+    def alarm_event(self):
+        pass
+
+    def run(self):
         while True:
-            self.gpio.snooze_button_led_on()
-            time.sleep(0.5)
-            self.gpio.snooze_button_lef_off()
-            time.sleep(0.5)
+            while self.alarm_running:
+                self.gpio.snooze_button_led_on()
+                time.sleep(0.5)
+                self.gpio.snooze_button_lef_off()
+                time.sleep(0.5)
 
 if __name__ == "__main__":
     clock = NetRadioAlarmClock()
+    clock.setup()
     clock.run()
