@@ -63,8 +63,8 @@ class MPDController():
 
 class Scheduler():
     def __init__(self):
-        self.sync_events = []
-        self.fixed_events = []
+        self._sync_events = []
+        self._fixed_events = []
 
     def remove_old_events(self):
         pass
@@ -72,17 +72,19 @@ class Scheduler():
     def sync_events(self, events, event_func):
 
         # Look for and remove events in local db but not on google calendar
-        for s_event in self.sync_events:
+        for s_event in self._sync_events:
             if not s_event in events:
-                self.sync_events.remove(s_event)
+                print("Removing event " + s_event)
+                self._sync_events.remove(s_event)
 
         # Look for and add event on google calendar but not in local db
         for event in events:
-            if not event in self.sync_events:
-                self.sync_events.append(event)
+            if not event in self._sync_events:
+                self._sync_events.append(event)
                 event_time = datetime.datetime.strptime(event, "%Y-%m-%d %H:%M:%S")
-                delta_time = (datetime.datetime.now() - event_time).total_seconds()
+                delta_time = (event_time - datetime.datetime.now()).total_seconds()
                 #Schedule event
+                print("Sceduling an event at " + event)
                 threading.Timer(delta_time, event_func, args=[event]).start()
     
 
@@ -90,12 +92,12 @@ class Scheduler():
         time_str = time.strftime("%Y-%m-%d %H:%M:%S")
 
         found_event = False
-        if time_str in self.fixed_events:
+        if time_str in self._fixed_events:
             found_event = True
         else:
-            self.fixed_events.append(time_str)
+            self._fixed_events.append(time_str)
 
-        delta_time = (datetime.datetime.now() - time).total_seconds()
+        delta_time = (time - datetime.datetime.now()).total_seconds()
         
         if not found_event:
             threading.Timer(delta_time, event_func, args=[time_str]).start()
@@ -103,8 +105,8 @@ class Scheduler():
             print("Event already exists! Not adding.")
 
     def remove_event(self, event):
-        if event in self.events:
-            self.events.remove(event)
+        if event in self._fixed_events:
+            self._fixed_events.remove(event)
 
 class GoogleCalendar():
 
@@ -299,6 +301,8 @@ class NetRadioAlarmClock():
         self.arduino = ArduinoController(0x08)
         self.gpio = RPiGPIO()
         self.alarm_running = True
+        self.update_interval = 60 * 5
+        self.state = "idle"
 
         self.gpio.reset_arduino()
         
@@ -311,15 +315,17 @@ class NetRadioAlarmClock():
         print("Artist: " + self.mpdc.get_artist())
         print("Title: " + self.mpdc.get_title())
 
-        self.arduino.update_lcd_idle()
-        self.gpio.snooze_button_led_on()
-
         # display idle screen
+        self.arduino.update_lcd_idle()
 
         # read events from google calendar
-        self.update_events()
+        self.update_events("null")
 
-    def update_events(self):
+        # update time on arduino
+        self.update_lcd_idle("null")
+
+    def update_events(self, event_time):
+        print("Updating events")
         self.gcal = GoogleCalendar()
         # get events
         alarm_events = self.gcal.get_alarm_events()
@@ -327,10 +333,24 @@ class NetRadioAlarmClock():
         self.sched.sync_events(alarm_events, self.alarm_event)
 
         # scedule next event update
-        #next_update_time = datetime.datetime.now() + datetime.timedelta()
-        self.sched.schedule_event()
+        now = datetime.datetime.now()
+        next_update_time = datetime.datetime.now() + datetime.timedelta(seconds=self.update_interval)
+        print(now.time())
+        print(next_update_time.time())
+        self.sched.schedule_event(next_update_time, self.update_events)
 
-    def alarm_event(self):
+    def update_lcd_playing(self):
+        pass
+    
+    def update_lcd_idle(self, time_str):
+        self.arduino.update_lcd_idle()
+        one_second = datetime.datetime.now() + datetime.timedelta(seconds=1)
+        
+        if self.state == "idle":
+            self.sched.schedule_event(one_second, self.update_lcd_idle)
+
+    def alarm_event(self, event_time):
+        print("woop")
         pass
 
     def run(self):
