@@ -1,4 +1,4 @@
-from mpd import MPDClient, ConnectionError
+from mpd import MPDClient, ConnectionError, ProtocolError
 from smbus2 import i2c_msg, SMBus
 import RPi.GPIO as GPIO
 import time
@@ -6,10 +6,10 @@ import threading
 import datetime
 import pickle
 import os.path
+import datetime
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-import datetime
 
 def StringToBytes(val):
     ret_val = []
@@ -26,13 +26,15 @@ class MPDController():
         self.client.timeout = 10
         self.client.idletimeout = None
         self.client.connect("localhost", 6600)
-        #self.client.load("Radio")
+        self.client.load("Radio")
     
     def set_volume(self, volume):
         try:
             self.client.setvol(volume)
         except ConnectionError:
             print("Connection to MPD error.")
+        except ProtocolError:
+            print("Got garbage data")
         
     def play(self):
         self.client.play()
@@ -109,6 +111,7 @@ class Scheduler():
             self._fixed_events.remove(event)
 
 class GoogleCalendar():
+    
 
     def __init__(self):
 
@@ -177,9 +180,16 @@ class RotEncThread(threading.Thread):
         self.bus = SMBus(1)
         self.get_vol_arr = [103, 101, 116, 118, 0]
         self.lock = threading.Lock()
+        self.paused = False
     
     def set_vol_change_func(self, func):
         self.vol_change_func = func
+
+    def pause(self):
+        self.paused = True
+
+    def resume(self):
+        self.paused = False
 
     def run(self):
         #try:
@@ -188,30 +198,46 @@ class RotEncThread(threading.Thread):
             try:
                 #self.bus.write_i2c_block_data(self.arduino_addr, 0x00, self.get_vol_arr)
                 global i2c_lock
-                if not i2c_lock:
-                    i2c_lock = True
+                if not self.paused:
+                    #i2c_lock = True
                     try:
-                        self.bus.write_byte(self.arduino_addr, 0x01)
+                       self.bus.write_byte(self.arduino_addr, 0x01)
+                       pass
                     except OSError:
-                        print("OS Error (write)")
+                        #print("OS Error (write)")
+                        pass
                     finally:
-                        i2c_lock = False
+                        pass
+                        #i2c_lock = False
                 time.sleep(0.1)
-                if not i2c_lock:
-                    i2c_lock = True
+                if not self.paused:
+                    #i2c_lock = True
                     try:
                         self.read_volume = self.bus.read_byte_data(self.arduino_addr, 0)
+                        pass
                     except OSError:
-                        print("OS error (read)")
+                        pass
+                        #print("OS error (read)")
                     finally:
-                        i2c_lock = False
+                        pass
+                        #i2c_lock = False
                 else:
-                    print("I2C lock receiving volume.")
+                    pass
+                    #print("I2C lock receiving volume.")
                 #print(self.read_volume)
-                if self.read_volume != self.last_read_volume:
-                    self.vol_change_func(self.read_volume)
-                    print(self.read_volume)
-                self.last_read_volume = self.read_volume
+                if not self.paused:
+                    random_zero = False
+                    if self.read_volume != self.last_read_volume:
+                        
+                        if self.read_volume == 0:
+                            random_zero = True
+                        else:
+                            self.vol_change_func(self.read_volume)
+                            print("vol: " + str(self.read_volume))
+                    if random_zero:
+                        pass
+                    else:
+                        self.last_read_volume = self.read_volume
             finally:
                 self.lock.release()
                 time.sleep(0.01)
@@ -235,26 +261,29 @@ class ArduinoController():
             self.rot_enc_thread.set_vol_change_func(self.vol_change_cb)
             self.rot_enc_thread.daemon = True
             self.rot_enc_thread.start()
+            pass
         except:
             print("Error starting thread")
 
     def write_data(self, data):
         byte_value = StringToBytes(data)
         global i2c_lock
-        if not i2c_lock:
-            i2c_lock = True
-            self.bus.write_i2c_block_data(self.address, 0x00, byte_value)
-            i2c_lock = False
-        else:
-            print("Can't write - i2c lock")
+        #if not i2c_lock:
+            #i2c_lock = True
+        self.rot_enc_thread.pause()
+        self.bus.write_i2c_block_data(self.address, 0x00, byte_value)
+        self.rot_enc_thread.resume()
+            #i2c_lock = False
+        #else:
+        #   print("Can't write - i2c lock")
         
     
-    def update_lcd_playing(self, station_name, artist, title, date_time):
-        pass
-
-    def update_lcd_idle(self):
+    def update_lcd_playing(self, station_name, artist, title):
+        station_name = station_name[:33]
+        artist = artist[:33]
+        title = title[:33]
         localtime = time.localtime(time.time())
-        print("Local time: " + time.asctime(localtime))
+        #print("Local time: " + time.asctime(localtime))
         time_str = str(localtime.tm_wday+1)
         time_str += "-" + str(localtime.tm_mday).zfill(2)
         time_str += "-" + str(localtime.tm_mon).zfill(2)
@@ -262,8 +291,27 @@ class ArduinoController():
         time_str += "-" + str(localtime.tm_hour).zfill(2)
         time_str += "-" + str(localtime.tm_min).zfill(2)
         time_str += "-" + str(localtime.tm_sec).zfill(2)
-        print("String to send: " + time_str)
-        self.write_data("clki:"+time_str)
+        self.write_data("stat:" + station_name)
+        time.sleep(0.1)
+        self.write_data("arti:" + artist)
+        time.sleep(0.1)
+        self.write_data("titl:" + title)
+        time.sleep(0.1)
+        self.write_data("clkp:" + time_str)
+
+    def update_lcd_idle(self):
+        localtime = time.localtime(time.time())
+        #print("Local time: " + time.asctime(localtime))
+        time_str = str(localtime.tm_wday+1)
+        time_str += "-" + str(localtime.tm_mday).zfill(2)
+        time_str += "-" + str(localtime.tm_mon).zfill(2)
+        time_str += "-" + str(localtime.tm_year)
+        time_str += "-" + str(localtime.tm_hour).zfill(2)
+        time_str += "-" + str(localtime.tm_min).zfill(2)
+        time_str += "-" + str(localtime.tm_sec).zfill(2)
+        #print("String to send: " + time_str)
+        self.write_data("clki:" + time_str)
+        
 
 class RPiGPIO():
 
@@ -304,7 +352,9 @@ class NetRadioAlarmClock():
         self.update_interval = 60 * 5
         self.state = "idle"
 
+        print("Resetting Arduino")
         self.gpio.reset_arduino()
+        print("Done")
         
         self.arduino.set_vol_change_callback(self.mpdc.set_volume)
         self.arduino.start_rot_enc_thread()
@@ -319,10 +369,13 @@ class NetRadioAlarmClock():
         self.arduino.update_lcd_idle()
 
         # read events from google calendar
-        self.update_events("null")
+        #self.update_events("null")
+
+        # Testing
+        self.alarm_event(datetime.datetime.now())
 
         # update time on arduino
-        self.update_lcd_idle("null")
+        #self.update_lcd_idle("null")
 
     def update_events(self, event_time):
         print("Updating events")
@@ -339,8 +392,19 @@ class NetRadioAlarmClock():
         print(next_update_time.time())
         self.sched.schedule_event(next_update_time, self.update_events)
 
-    def update_lcd_playing(self):
-        pass
+    def update_lcd_playing(self, time_str):
+
+        station = self.mpdc.get_station_name()
+        artist = self.mpdc.get_artist()
+        title = self.mpdc.get_title()
+
+        self.arduino.update_lcd_playing(station, artist, title)
+
+        one_second = datetime.datetime.now() + datetime.timedelta(seconds=1)
+        
+        if self.state == "playing":
+            self.sched.schedule_event(one_second, self.update_lcd_playing)
+
     
     def update_lcd_idle(self, time_str):
         self.arduino.update_lcd_idle()
@@ -350,18 +414,25 @@ class NetRadioAlarmClock():
             self.sched.schedule_event(one_second, self.update_lcd_idle)
 
     def alarm_event(self, event_time):
+        self.state = "playing"
+        self.mpdc.play()
+        self.update_lcd_playing("null")
         print("woop")
         pass
 
     def run(self):
         while True:
-            while self.alarm_running:
+            if self.alarm_running:
                 self.gpio.snooze_button_led_on()
                 time.sleep(0.5)
                 self.gpio.snooze_button_lef_off()
                 time.sleep(0.5)
+            # If alarm clock starts playing
+            #if self.state == "idle" and self.mpdc.
 
 if __name__ == "__main__":
+    print("Start.")
     clock = NetRadioAlarmClock()
     clock.setup()
     clock.run()
+    print("Running")
