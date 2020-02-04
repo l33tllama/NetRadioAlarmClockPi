@@ -1,3 +1,5 @@
+import subprocess
+
 from mpd import MPDClient, ConnectionError, ProtocolError
 from smbus2 import i2c_msg, SMBus
 import RPi.GPIO as GPIO
@@ -19,6 +21,47 @@ def StringToBytes(val):
 
     ret_val.append(0)
     return ret_val
+
+class MPG123Controller():
+    def __init(self):
+        pass
+
+    def play_url(self, url):
+        pass
+
+class SystemVolumeController():
+    def __init(self):
+        pass
+
+    def set_volume(self, volume_level):
+        pass
+
+#
+class MultimmediaController():
+    def __init__(self):
+        self.stream_url = ""
+        self.player_process = None
+        self.playing = False
+
+    def set_stream_url(self, stream_url):
+        self.stream_url = stream_url
+
+    def play_stream(self):
+        if self.playing:
+            self.stop_stream()
+            self.play_stream()
+        else:
+            self.player_process = subprocess.Popen(["/usr/bin/mpg123", "-@" + self.stream_url])
+            self.playing = True
+
+    def stop_stream(self):
+        self.player_process.kill()
+        self.playing = False
+
+    def set_volume(self, volume):
+        volume_scaled = (volume / 100) * 65536
+        subprocess.call(["/usr/bin/amixer", "--set", "'Master'", str(volume_scaled)])
+
 
 class MPDController():
     def __init__(self):
@@ -111,7 +154,6 @@ class Scheduler():
             self._fixed_events.remove(event)
 
 class GoogleCalendar():
-    
 
     def __init__(self):
 
@@ -201,7 +243,7 @@ class RotEncThread(threading.Thread):
                 if not self.paused:
                     #i2c_lock = True
                     try:
-                       self.bus.write_byte(self.arduino_addr, 0x01)
+                       #self.bus.write_byte(self.arduino_addr, 0x01)
                        pass
                     except OSError:
                         #print("OS Error (write)")
@@ -213,7 +255,7 @@ class RotEncThread(threading.Thread):
                 if not self.paused:
                     #i2c_lock = True
                     try:
-                        self.read_volume = self.bus.read_byte_data(self.arduino_addr, 0)
+                       # self.read_volume = self.bus.read_byte_data(self.arduino_addr, 0)
                         pass
                     except OSError:
                         pass
@@ -266,6 +308,7 @@ class ArduinoController():
             print("Error starting thread")
 
     def write_data(self, data):
+        print("Writing: " + str(data))
         byte_value = StringToBytes(data)
         global i2c_lock
         #if not i2c_lock:
@@ -358,6 +401,12 @@ class NetRadioAlarmClock():
         
         self.arduino.set_vol_change_callback(self.mpdc.set_volume)
         self.arduino.start_rot_enc_thread()
+
+    def test_radio(self):
+        pass
+
+    def test_alarm(self):
+        pass
 
     
     def setup(self):
