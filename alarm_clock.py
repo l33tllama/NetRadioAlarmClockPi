@@ -1,6 +1,4 @@
 import subprocess
-
-from mpd import MPDClient, ConnectionError, ProtocolError
 from smbus2 import i2c_msg, SMBus
 import RPi.GPIO as GPIO
 import time
@@ -9,9 +7,12 @@ import datetime
 import pickle
 import os.path
 import datetime
+import urllib.request
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+
+radio_triplej_url = "http://www.abc.net.au/res/streaming/audio/mp3/triplej.pls"
 
 def StringToBytes(val):
     ret_val = []
@@ -38,13 +39,43 @@ class SystemVolumeController():
 
 #
 class MultimmediaController():
-    def __init__(self):
+    def __init__(self, ):
         self.stream_url = ""
         self.player_process = None
         self.playing = False
 
     def set_stream_url(self, stream_url):
-        self.stream_url = stream_url
+        self.stream_url = self.get_radio_url_from_pls(stream_url)
+
+    @staticmethod
+    def get_radio_url_from_pls(playlist_file_url):
+        contents = str(urllib.request.urlopen(playlist_file_url).read())
+        file1_pos = contents.find("File1")
+        after_file_1 = contents[file1_pos + 6:]
+        new_line_pos = after_file_1.find('\\r')
+        radio_url = after_file_1[:new_line_pos - 1]
+        return radio_url
+
+    def get_station_title(self):
+        header = {'Icy-MetaData': 1}
+        request = urllib.request.Request(self.stream_url, headers=header)
+        response = urllib.request.urlopen(request)
+        icy_metaint_header = response.headers.get('icy-metaint')
+        if icy_metaint_header is not None:
+            metaint = int(icy_metaint_header)
+            read_buffer = metaint + 255
+            content = response.read(read_buffer)
+            content_str = ""
+            for _byte in content:
+                content_str += chr(int(_byte))
+
+            stream_title_pos = content_str.find("StreamTitle=")
+            post_title_content = content_str[stream_title_pos + 13:]
+            semicolon_pos = post_title_content.find(';')
+            station_name = post_title_content[:semicolon_pos - 1]
+            return station_name
+        else:
+            return "No data"
 
     def play_stream(self):
         if self.playing:
@@ -62,49 +93,6 @@ class MultimmediaController():
         volume_scaled = (volume / 100) * 65536
         subprocess.call(["/usr/bin/amixer", "--set", "'Master'", str(volume_scaled)])
 
-
-class MPDController():
-    def __init__(self):
-        self.client = MPDClient()
-        self.client.timeout = 10
-        self.client.idletimeout = None
-        self.client.connect("localhost", 6600)
-        self.client.load("Radio")
-    
-    def set_volume(self, volume):
-        try:
-            self.client.setvol(volume)
-        except ConnectionError:
-            print("Connection to MPD error.")
-        except ProtocolError:
-            print("Got garbage data")
-        
-    def play(self):
-        self.client.play()
-
-    def stop(self):
-        self.client.stop()
-
-    def get_station_name(self):
-        current_song = self.client.currentsong()
-        try:
-            return current_song['name']
-        except KeyError:
-            return ""
-
-    def get_artist(self):
-        try:
-            current_song = self.client.currentsong()
-            return current_song['artist']
-        except KeyError:
-            return ""
-
-    def get_title(self):
-        current_song = self.client.currentsong()
-        try:
-            return current_song['title']
-        except KeyError:
-            return ""
 
 class Scheduler():
     def __init__(self):
@@ -362,6 +350,7 @@ class RPiGPIO():
         self.reset_pin = 17
         self.snooze_btn_pin = 27
         self.snooze_btn_led_pin = 22
+        self.snooze_callback = None
         GPIO.setmode(GPIO.BCM)
         # Reset line
         GPIO.setup(self.reset_pin, GPIO.OUT)
@@ -370,6 +359,7 @@ class RPiGPIO():
         # snooze button LED
         GPIO.setup(self.snooze_btn_led_pin, GPIO.OUT)
         GPIO.output(self.reset_pin, GPIO.HIGH)
+        #GPIO.add_event_detect(self.snooze_btn_pin, GPIO.FALLING, callback=self.snooze_callback)
     
     def snooze_button_led_on(self):
         GPIO.output(self.snooze_btn_led_pin, GPIO.HIGH)
@@ -383,36 +373,42 @@ class RPiGPIO():
         GPIO.output(self.reset_pin, GPIO.HIGH)
         time.sleep(3.5)
 
+    def set_snooze_btn_callback(self, callback):
+        #self.snooze_callback = callback
+        GPIO.add_event_detect(self.snooze_btn_pin, GPIO.FALLING, callback=callback)
+
 class NetRadioAlarmClock():
 
     def __init__(self):
-        self.mpdc = MPDController()
+        #self.mpdc = MPDController()
+        self.media = MultimmediaController()
         self.sched = Scheduler()
         #self.gcal = GoogleCalendar()
         self.arduino = ArduinoController(0x08)
         self.gpio = RPiGPIO()
-        self.alarm_running = True
+        self.alarm_running = False
         self.update_interval = 60 * 5
         self.state = "idle"
+        self.gpio.set_snooze_btn_callback(self.alarm_snooze_event)
 
         print("Resetting Arduino")
         self.gpio.reset_arduino()
         print("Done")
         
-        self.arduino.set_vol_change_callback(self.mpdc.set_volume)
+        self.arduino.set_vol_change_callback(self.media.set_volume)
         self.arduino.start_rot_enc_thread()
 
     def test_radio(self):
-        pass
+        self.media.set_stream_url(radio_triplej_url)
+        self.media.play_stream()
 
     def test_alarm(self):
         pass
 
-    
     def setup(self):
-        print("Station: " + self.mpdc.get_station_name())
-        print("Artist: " + self.mpdc.get_artist())
-        print("Title: " + self.mpdc.get_title())
+        #print("Station: " + self.mpdc.get_station_name())
+        #print("Artist: " + self.mpdc.get_artist())
+        #print("Title: " + self.mpdc.get_title())
 
         # display idle screen
         self.arduino.update_lcd_idle()
@@ -420,7 +416,10 @@ class NetRadioAlarmClock():
         # read events from google calendar
         #self.update_events("null")
 
+        self.media.set_stream_url(radio_triplej_url)
+
         # Testing
+        #self.test_radio()
         self.alarm_event(datetime.datetime.now())
 
         # update time on arduino
@@ -443,11 +442,13 @@ class NetRadioAlarmClock():
 
     def update_lcd_playing(self, time_str):
 
-        station = self.mpdc.get_station_name()
-        artist = self.mpdc.get_artist()
-        title = self.mpdc.get_title()
+        #station = self.mpdc.get_station_name()
+        #artist = self.mpdc.get_artist()
+        #title = self.mpdc.get_title()
 
-        self.arduino.update_lcd_playing(station, artist, title)
+        station = self.media.get_station_title()
+
+        self.arduino.update_lcd_playing(station, "", "")
 
         one_second = datetime.datetime.now() + datetime.timedelta(seconds=1)
         
@@ -462,9 +463,16 @@ class NetRadioAlarmClock():
         if self.state == "idle":
             self.sched.schedule_event(one_second, self.update_lcd_idle)
 
+    def alarm_snooze_event(self, channel):
+        self.state = "idle"
+        self.media.stop_stream()
+        self.alarm_running = False
+        self.update_lcd_idle("null")
+
     def alarm_event(self, event_time):
         self.state = "playing"
-        self.mpdc.play()
+        self.media.play_stream()
+        self.alarm_running = True
         self.update_lcd_playing("null")
         print("woop")
         pass
