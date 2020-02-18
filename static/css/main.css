@@ -1,0 +1,13 @@
+#main{
+    width: 800px;
+    margin: 0 auto;
+    padding: 10px;
+}
+
+#saved-station-title{
+    margin-top: 20px;
+}
+
+@media (max-width: 800px) {
+    width: auto;
+}
