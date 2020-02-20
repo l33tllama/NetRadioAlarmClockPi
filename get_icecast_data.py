@@ -1,6 +1,8 @@
 import urllib.request
 
 stream_url = 'http://live-radio01.mediahubaustralia.com/7LRW/mp3/'
+stream_url = 'http://live-radio01.mediahubaustralia.com/UNEW/mp3/'
+stream_url = 'http://radio1.internode.on.net:8000/268'
 '''
 request = urllib.request(stream_url)
 

@@ -10,6 +10,7 @@ import datetime
 import urllib.request
 import webserver
 import sys
+from radio_db import RadioDB
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -379,6 +380,9 @@ class RPiGPIO():
         #self.snooze_callback = callback
         GPIO.add_event_detect(self.snooze_btn_pin, GPIO.FALLING, callback=callback)
 
+
+
+
 class NetRadioAlarmClock():
 
     def __init__(self):
@@ -388,7 +392,9 @@ class NetRadioAlarmClock():
         #self.gcal = GoogleCalendar()
         self.arduino = ArduinoController(0x08)
         self.gpio = RPiGPIO()
+        self.radio_db = RadioDB("radio-settings.db")
         self.webserver = webserver
+        self.webserver.add_station_cb = self.radio_db.add_station
         self.alarm_running = False
         self.update_interval = 60 * 5
         self.state = "idle"

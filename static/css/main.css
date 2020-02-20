@@ -8,6 +8,12 @@
     margin-top: 20px;
 }
 
+#url-error-msg {
+    display: none;
+    color: #e00;
+    font-style: italic;
+}
+
 @media (max-width: 800px) {
     width: auto;
 }
