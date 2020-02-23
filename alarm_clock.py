@@ -59,9 +59,34 @@ class MultimmediaController():
         radio_url = after_file_1[:new_line_pos - 1]
         return radio_url
 
-    def get_station_title(self):
+    @staticmethod
+    def get_radio_url_from_m3u(playlist_file_url):
+        contents = str(urllib.request.urlopen(playlist_file_url).read())
+        http_pos = contents.find("http:")
+        after_http = contents[http_pos:]
+        new_line_pos = after_http.find('\\r')
+        radio_url = after_http[:new_line_pos - 1]
+        return radio_url
+
+    def get_title_from_any_url(self, url):
+        stream_url = ""
+        if ".m3u" in url or ".m3u8" in url:
+            stream_url = self.get_radio_url_from_m3u(url)
+        elif ".pls" in url:
+            stream_url = self.get_radio_url_from_pls(url)
+        else:
+            stream_url = url
+
+        title = self.get_station_title(station_url=stream_url)
+        return title
+
+    def get_station_title(self, station_url=""):
         header = {'Icy-MetaData': 1}
-        request = urllib.request.Request(self.stream_url, headers=header)
+        request = None
+        if station_url != "":
+            request = urllib.request.Request(station_url, headers=header)
+        else:
+            request = urllib.request.Request(self.stream_url, headers=header)
         response = urllib.request.urlopen(request)
         icy_metaint_header = response.headers.get('icy-metaint')
         if icy_metaint_header is not None:
@@ -381,8 +406,6 @@ class RPiGPIO():
         GPIO.add_event_detect(self.snooze_btn_pin, GPIO.FALLING, callback=callback)
 
 
-
-
 class NetRadioAlarmClock():
 
     def __init__(self):
@@ -394,7 +417,10 @@ class NetRadioAlarmClock():
         self.gpio = RPiGPIO()
         self.radio_db = RadioDB("radio-settings.db")
         self.webserver = webserver
-        self.webserver.add_station_cb = self.radio_db.add_station
+        self.webserver.add_station_cb = self.add_station
+        self.webserver.get_stations_cb = self.radio_db.get_stations
+        self.webserver.set_current_station_cb = self.radio_db.set_current_station
+        self.webserver.get_current_station_cb = self.get_current_station
         self.alarm_running = False
         self.update_interval = 60 * 5
         self.state = "idle"
@@ -412,6 +438,15 @@ class NetRadioAlarmClock():
 
             self.arduino.set_vol_change_callback(self.media.set_volume)
             self.arduino.start_rot_enc_thread()
+
+    def add_station(self, station_url):
+        title = self.media.get_title_from_any_url(station_url)
+        self.radio_db.add_station(station_url, title)
+
+    def get_current_station(self):
+        station_url = self.radio_db.get_current_station()
+        title = self.radio_db.get_title_for_station_url(station_url)
+        return station_url, title
 
     def test_radio(self):
         self.media.set_stream_url(radio_triplej_url)
