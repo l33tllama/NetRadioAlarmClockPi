@@ -421,6 +421,7 @@ class NetRadioAlarmClock():
         self.webserver.get_stations_cb = self.radio_db.get_stations
         self.webserver.set_current_station_cb = self.radio_db.set_current_station
         self.webserver.get_current_station_cb = self.get_current_station
+        self.webserver.update_station_name_cb = self.radio_db.update_station_title
         self.alarm_running = False
         self.update_interval = 60 * 5
         self.state = "idle"

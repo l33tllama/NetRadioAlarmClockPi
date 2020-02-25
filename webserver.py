@@ -10,6 +10,7 @@ add_station_cb = None
 get_stations_cb = None
 set_current_station_cb = None
 get_current_station_cb = None
+update_station_name_cb = None
 
 @app.route('/')
 def index():
@@ -53,6 +54,18 @@ def get_current_station():
         return json.dumps([station, title])
     else:
         return "ERR: get_current_station_cb not callable"
+
+@app.route("/update_station_name")
+def update_station_name():
+    station_b64 = request.args.get("station_b64")
+    new_station_name_b64 = request.args.get("station_name_b64")
+    station_url = base64.b64decode(station_b64).decode()
+    new_station_name = base64.b64decode(new_station_name_b64).decode()
+    if callable(update_station_name_cb):
+        update_station_name_cb(station_url, new_station_name)
+        return "OK"
+    else:
+        return "ERR: update_station_name_cb not callable"
 
 
 def run():

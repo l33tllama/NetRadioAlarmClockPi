@@ -1,5 +1,6 @@
 let saved_stations = [];
 let current_station = "";
+let selected_station_index = -1;
 function get_stations(){
     return new Promise(function(resolve, reject){
         $.ajax("/get_stations").done(function(resp){
@@ -51,24 +52,44 @@ function get_current_station(){
 }
 
 function render_stations(){
-    let stationsHTML = "<ul class='list-group'>";
+    let stationsHTML = "<div class='input-group'><ul class='list-group' id='station-list'>";
     for(let i = 0; i < saved_stations.length; i++){
-        stationsHTML += "<li id=\"saved-station-" + i + "\" class='list-group-item'>" + saved_stations[i][1] + "\t:\t" + saved_stations[i][0] + "</li>";
+        stationsHTML += "<li id=\"saved-station-" + i + "\"class='list-group-item'>" +
+            "<!--<div class='input-group-prepend radio-btn-box inline-item'><div class='input-group-text'>-->" +
+            "<input class='inline-item radio-btn-box' id=\"saved-station-" + i + "-radio\" type='radio' name='station-radio-btn' aria-label='Select this station as current'><!--</div></div>-->" +
+            "<div class='station-info inline-item'><span class='station-name'>" + saved_stations[i][1] + "</span>\t:\t<span class='station-url'>" + saved_stations[i][0] + "</span></div>" +
+            "<button type='button' class='btn btn-outline-primary edit-btn inline-item' id='edit-name-btn-" + i + "' data-toggle='modal' data-target='#edit-name-modal'>" +
+            "<i class=\"fas fa-edit\"></i></button>"
+            + "</li>";
     }
-    stationsHTML += "</ul>";
+    stationsHTML += "</ul></div>";
     $("#saved-stations").html(stationsHTML);
     for(let i = 0; i < saved_stations.length; i++){
-        $("#saved-station-" + i).click(function(){
+        // Set current station
+        $("#saved-station-" + i + "-radio").click(function(){
             set_current_station(saved_stations[i][0]).then(function(){
                 for(let j = 0; j < saved_stations.length; j++){
                     if(j == i){
-                        $("#saved-station-" + i).addClass("active");
+                        $("#saved-station-" + j).addClass("active");
+                        $("#edit-name-btn-" + j).removeClass("btn-outline-primary");
+                        $("#edit-name-btn-" + j).addClass("btn-outline-light");
                     } else {
                         $("#saved-station-" + j).removeClass("active");
+                        $("#edit-name-btn-" + j).addClass("btn-outline-primary");
+                        $("#edit-name-btn-" + j).removeClass("btn-outline-light");
                     }
                 }
 
-            })
+            });
+            selected_station_index = i;
+        });
+        // Edit station name
+        $("#edit-name-btn-" + i).click(function(){
+            console.log("eh " + i);
+            $("#station-name").html(saved_stations[i][1]);
+            $("#station-url").html(saved_stations[i][0]);
+            $("#new-station-name").val(saved_stations[i][1]);
+            selected_station_index = i;
         })
     }
 }
@@ -84,6 +105,7 @@ function refresh_stations() {
 
 $(document).ready(function(){
     refresh_stations();
+    console.log("Loaded.");
 });
 
 function send_station(station_url){
@@ -100,6 +122,22 @@ function send_station(station_url){
         })
     })
 
+}
+
+function update_station_name(station_url, new_name){
+    return new Promise(function(resolve, reject){
+        let station_b64 = btoa(station_url);
+        let station_name_b64 = btoa(new_name);
+        $.ajax("/update_station_name?station_b64=" + station_b64 +"&station_name_b64=" + station_name_b64).done(function(resp){
+            if (resp == "OK"){
+                resolve(resp);
+            } else {
+                reject(resp);
+            }
+        }).fail(function (jqXHR, textStatus, errorThrown){
+            reject(errorThrown);
+        })
+    })
 }
 
 $("#add-station-btn").click(function(){
@@ -123,4 +161,13 @@ $("#add-station-btn").click(function(){
     }
     
     console.log("Station URL: " + verified_url);
+});
+
+$("#set-name-btn").click(function () {
+    let new_station_name = $("#new-station-name").val();
+    let selected_station_url = saved_stations[selected_station_index][0];
+    update_station_name(selected_station_url, new_station_name).then(function(resp){
+        refresh_stations();
+        $("#station-name").html(saved_stations[i][1]);
+    });
 })

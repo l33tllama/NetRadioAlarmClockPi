@@ -84,7 +84,7 @@ class RadioDB:
 
         query_text = "UPDATE saved_stations SET title = '{title}' WHERE url = '{url}'".format(title=title, url=station_url)
 
-        c.execute()
+        c.execute(query_text)
 
         self.conn.commit()
         self.conn.close()

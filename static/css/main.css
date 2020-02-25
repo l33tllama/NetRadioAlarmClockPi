@@ -13,6 +13,30 @@
     color: #e00;
     font-style: italic;
 }
+#station-list{
+    min-width: 780px;
+}
+.edit-btn{
+    text-align: right;
+    float: right;
+    max-width: 48px;
+}
+.radio-btn-box{
+    max-width: 38px !important;
+    margin-right: 5px;
+}
+.station-info {
+    max-width: 600px !important;
+}
+.inline-item{
+    display: inline-block;
+}
+.station-name {
+    font-weight: bold;
+}
+.station-url {
+    font-style: italic;
+}
 
 @media (max-width: 800px) {
     width: auto;
