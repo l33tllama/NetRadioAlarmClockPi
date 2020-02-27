@@ -23,6 +23,17 @@ function update_stations(resp_json) {
     })
 }
 
+function update_current_station(resp_json){
+    return new Promise(function (resolve, reject){
+        try{
+            current_station = JSON.parse(resp_json)[0];
+            resolve()
+        } catch (e){
+            reject(e);
+        }
+    })
+}
+
 function set_current_station(station_url){
     return new Promise(function (resolve, reject) {
         $.ajax("/set_current_station?station_b64=" + btoa(station_url)).done(function(resp){
@@ -54,11 +65,19 @@ function get_current_station(){
 function render_stations(){
     let stationsHTML = "<div class='input-group'><ul class='list-group' id='station-list'>";
     for(let i = 0; i < saved_stations.length; i++){
-        stationsHTML += "<li id=\"saved-station-" + i + "\"class='list-group-item'>" +
+        let checked = "";
+        let active = "";
+        let btn_class = "btn-outline-primary";
+        if(current_station == saved_stations[i][0]){
+            checked = "checked='checked'";
+            active = "active";
+            btn_class = "btn-outline-light";
+        }
+        stationsHTML += "<li id=\"saved-station-" + i + "\"class='list-group-item " + active + "'>" +
             "<!--<div class='input-group-prepend radio-btn-box inline-item'><div class='input-group-text'>-->" +
-            "<input class='inline-item radio-btn-box' id=\"saved-station-" + i + "-radio\" type='radio' name='station-radio-btn' aria-label='Select this station as current'><!--</div></div>-->" +
+            "<input class='inline-item radio-btn-box' id=\"saved-station-" + i + "-radio\" type='radio' name='station-radio-btn' aria-label='Select this station as current' " + checked + "><!--</div></div>-->" +
             "<div class='station-info inline-item'><span class='station-name'>" + saved_stations[i][1] + "</span>\t:\t<span class='station-url'>" + saved_stations[i][0] + "</span></div>" +
-            "<button type='button' class='btn btn-outline-primary edit-btn inline-item' id='edit-name-btn-" + i + "' data-toggle='modal' data-target='#edit-name-modal'>" +
+            "<button type='button' class='btn " + btn_class + " edit-btn inline-item' id='edit-name-btn-" + i + "' data-toggle='modal' data-target='#edit-name-modal'>" +
             "<i class=\"fas fa-edit\"></i></button>"
             + "</li>";
     }
@@ -96,9 +115,13 @@ function render_stations(){
 
 function refresh_stations() {
     get_stations().then(function (resp) {
-        update_stations(resp).then(function () {
-            console.log("Success!");
-            render_stations();
+        get_current_station().then(function(resp2){
+            update_current_station(resp2).then(function(){
+                update_stations(resp).then(function () {
+                    console.log("Success!");
+                    render_stations();
+                })
+            })
         })
     })
 }
@@ -168,6 +191,20 @@ $("#set-name-btn").click(function () {
     let selected_station_url = saved_stations[selected_station_index][0];
     update_station_name(selected_station_url, new_station_name).then(function(resp){
         refresh_stations();
-        $("#station-name").html(saved_stations[i][1]);
+        $("#station-name").html(new_station_name);
     });
-})
+});
+
+$("#nav-status").click(function(){
+    $("#status-page").show();
+    $("#stations-page").hide();
+    $("#nav-item-status").addClass("active");
+    $("#nav-item-status").removeClass("active");
+});
+
+$("#nav-stations").click(function(){
+    $("#stations-page").show();
+    $("#status-page").hide();
+    $("#nav-item-stations").addClass("active");
+    $("#nav-item-stations").removeClass("active");
+});

@@ -68,7 +68,7 @@ class RadioDB:
         self._connect()
         c = self.conn.cursor()
 
-        query_text = "SELECT * from saved_stations WHERE url = '{ur}'".format(url=station_url)
+        query_text = "SELECT * from saved_stations WHERE url = '{url}'".format(url=station_url)
 
         c.execute(query_text)
         title = c.fetchone()[1]

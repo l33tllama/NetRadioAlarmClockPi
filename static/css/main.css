@@ -7,6 +7,9 @@
 #saved-station-title{
     margin-top: 20px;
 }
+#stations-page {
+    display: none;
+}
 
 #url-error-msg {
     display: none;

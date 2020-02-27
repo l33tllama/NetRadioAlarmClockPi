@@ -12,6 +12,7 @@ set_current_station_cb = None
 get_current_station_cb = None
 update_station_name_cb = None
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -36,6 +37,7 @@ def get_stations():
     else:
         return "ERR: get_stations_cb not callable"
 
+
 @app.route("/set_current_station")
 def set_current_station():
     if callable(set_current_station_cb):
@@ -54,6 +56,7 @@ def get_current_station():
         return json.dumps([station, title])
     else:
         return "ERR: get_current_station_cb not callable"
+
 
 @app.route("/update_station_name")
 def update_station_name():
