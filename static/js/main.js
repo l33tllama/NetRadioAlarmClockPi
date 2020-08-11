@@ -87,6 +87,7 @@ function render_stations(){
         // Set current station
         $("#saved-station-" + i + "-radio").click(function(){
             set_current_station(saved_stations[i][0]).then(function(){
+                refresh_stations();
                 for(let j = 0; j < saved_stations.length; j++){
                     if(j == i){
                         $("#saved-station-" + j).addClass("active");
@@ -113,6 +114,16 @@ function render_stations(){
     }
 }
 
+function update_saved_station_name(){
+    let current_station_name = "";
+    for(let i = 0; i < saved_stations.length; i++){
+        if(saved_stations[i][0] == current_station){
+            current_station_name = saved_stations[i][1];
+        }
+    }
+    $("#selected-station-name").html(current_station_name);
+}
+
 function refresh_stations() {
     get_stations().then(function (resp) {
         get_current_station().then(function(resp2){
@@ -120,6 +131,7 @@ function refresh_stations() {
                 update_stations(resp).then(function () {
                     console.log("Success!");
                     render_stations();
+                    update_saved_station_name();
                 })
             })
         })

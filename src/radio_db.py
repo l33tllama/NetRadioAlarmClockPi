@@ -1,6 +1,5 @@
 import sqlite3
 
-
 # SQLite 3 Class for managing net radio settings
 class RadioDB:
     def __init__(self, db_filename):

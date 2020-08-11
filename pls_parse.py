@@ -2,6 +2,8 @@ import urllib.request
 
 url = 'http://www.abc.net.au/res/streaming/audio/mp3/triplej.pls'
 
+url = "http://www.abc.net.au/res/streaming/audio/mp3/triplej.pls"
+
 contents = str(urllib.request.urlopen(url).read())
 
 #print(contents)

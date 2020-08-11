@@ -4,19 +4,21 @@ import json
 from flask import Flask, render_template
 from flask import request
 
-app = Flask(__name__, static_folder="static")
+app = Flask(__name__, static_folder="../static")
 
 add_station_cb = None
 get_stations_cb = None
 set_current_station_cb = None
 get_current_station_cb = None
 update_station_name_cb = None
+get_stream_playing_cb = None
+play_stream_cb = None
+stop_stream_cb = None
 
 
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 @app.route("/add_station")
 def add_station():
@@ -69,6 +71,10 @@ def update_station_name():
         return "OK"
     else:
         return "ERR: update_station_name_cb not callable"
+
+@app.route("/get_status")
+def get_status():
+    return "OK"
 
 
 def run():
