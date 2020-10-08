@@ -2,6 +2,12 @@
 //VOLUME BAR
 //volume bar event
 let volumeDrag = false;
+let audio = {
+    "muted": false
+}
+volume_change_cb = function(percentage){
+    $('.volumeBar').css('width', percentage + '%');
+}
 $('.volume').on('mousedown', function (e) {
     volumeDrag = true;
     audio.muted = false;
@@ -41,4 +47,5 @@ let updateVolume = function (x, vol) {
 
     //update volume bar and video volume
     $('.volumeBar').css('width', percentage + '%');
+    update_volume(percentage);
 };

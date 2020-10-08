@@ -3,12 +3,30 @@
     margin: 0 auto;
     padding: 10px;
 }
+#next-alarm-label{
+    text-align: right;
+    vertical-align: center;
+}
+#next-alarm-time{
+    text-align: center;
+    font-size: 18pt;
+}
+
+#status-page h1{
+    text-align: center;
+}
 
 #saved-station-title{
     margin-top: 20px;
 }
 #stations-page {
     display: none;
+}
+#alarm-time-page{
+    display: none;
+}
+#alarm-time-page h2{
+    text-align: center;
 }
 
 #url-error-msg {
@@ -18,6 +36,27 @@
 }
 #station-list{
     min-width: 780px;
+}
+#alarm-time-page h3{
+    margin-top: 24px;
+}
+#weekday-options, #weekend-options{
+    padding: 10px;
+    background-color: #e6f2ff;
+    border: 2px solid #007bff;
+    border-radius: 8px;
+}
+
+#weekday-time-picker, #weekend-time-picker{
+    width:100%;
+    padding: 20px;
+    font-size: 24px;
+    text-align: center;
+}
+#save-btn-ctr{
+    width: 100%;
+    text-align: center;
+    margin-top: 15px;
 }
 .edit-btn{
     text-align: right;

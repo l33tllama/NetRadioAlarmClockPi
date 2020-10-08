@@ -42,7 +42,7 @@ class RotEncThread(threading.Thread):
                     finally:
                         pass
                         # i2c_lock = False
-                time.sleep(0.1)
+                #time.sleep(0.1)
                 if not self.paused:
                     # i2c_lock = True
                     try:
@@ -57,7 +57,7 @@ class RotEncThread(threading.Thread):
                 else:
                     pass
                     # print("I2C lock receiving volume.")
-                print(self.read_volume)
+                #print(self.read_volume)
                 if not self.paused:
                     random_zero = False
                     if self.read_volume != self.last_read_volume:
@@ -66,13 +66,13 @@ class RotEncThread(threading.Thread):
                             random_zero = True
                         else:
                             self.vol_change_func(self.read_volume)
-                            print("vol: " + str(self.read_volume))
+                            #print("vol: " + str(self.read_volume))
                     if random_zero:
                         pass
                     else:
                         self.last_read_volume = self.read_volume
             finally:
                 self.lock.release()
-                time.sleep(0.01)
+                #time.sleep(0.01)
     # finally:
     #    GPIO.cleanup()

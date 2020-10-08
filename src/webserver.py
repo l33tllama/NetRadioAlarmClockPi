@@ -3,8 +3,11 @@ import json
 
 from flask import Flask, render_template
 from flask import request
+from flask_socketio import SocketIO
+from flask_socketio import send, emit
 
-app = Flask(__name__, static_folder="../static")
+app = Flask(__name__, static_folder="../static", template_folder="../templates")
+socketio = SocketIO(app)
 
 add_station_cb = None
 get_stations_cb = None
@@ -14,7 +17,20 @@ update_station_name_cb = None
 get_stream_playing_cb = None
 play_stream_cb = None
 stop_stream_cb = None
+set_volume_cb = None
 
+# Disable caching!
+@app.after_request
+def add_header(r):
+    """
+    Add headers to both force latest IE rendering engine or Chrome Frame,
+    and also to cache the rendered page for 10 minutes.
+    """
+    r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    r.headers["Pragma"] = "no-cache"
+    r.headers["Expires"] = "0"
+    r.headers['Cache-Control'] = 'public, max-age=0'
+    return r
 
 @app.route('/')
 def index():
@@ -25,6 +41,7 @@ def add_station():
     station_b64 = request.args.get('station_b64')
     station_url = base64.b64decode(station_b64).decode()
     if callable(add_station_cb):
+        #print("Station URL: " + station_url)
         add_station_cb(station_url)
         return "OK"
     else:
@@ -76,6 +93,43 @@ def update_station_name():
 def get_status():
     return "OK"
 
+@app.route("/start_radio")
+def start_radio():
+    if callable(play_stream_cb):
+        play_stream_cb()
+        return "OK"
+    else:
+        return "ERR: play_stream_cb not callable"
+
+@app.route("/stop_radio")
+def stop_radio():
+    if callable(stop_stream_cb):
+        stop_stream_cb()
+        return "OK"
+    else:
+        return "ERR: stop_stream_cb not callable"
+
+
+@app.route("/set_volume")
+def set_volume():
+    global set_volume_cb
+    volume = int(float(request.args.get("volume")))
+    if callable(set_volume_cb):
+        set_volume_cb(volume)
+        return "OK"
+    else:
+        return "ERR: set_volume_cb not callable"
+
+
+def emit_status(playing, volume, station_name):
+    status_obj = {
+        "playing": playing,
+        "volume" : volume,
+        "station_name" : station_name
+    }
+    socketio.emit("station-status", status_obj)
+
 
 def run():
-    app.run(debug=True, host='0.0.0.0')
+    #app.run(debug=True, host='0.0.0.0')
+    socketio.run(app, host='0.0.0.0')

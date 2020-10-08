@@ -1,3 +1,5 @@
+import datetime
+
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -25,7 +27,7 @@ class GoogleCalendar():
                 creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    '../credentials.json', SCOPES)
+                    '/home/pi/Python/NetRadioAlarmClockPi/credentials.json', SCOPES)
                 creds = flow.run_local_server()
             # Save the credentials for the next run
             with open('../token.pickle', 'wb') as token:

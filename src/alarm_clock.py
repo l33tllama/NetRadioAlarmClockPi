@@ -17,28 +17,37 @@ i2c_lock = False
 
 class NetRadioAlarmClock():
     def __init__(self):
-        #self.mpdc = MPDController()
         self.media = MultimmediaController()
         self.sched = Scheduler()
         #self.gcal = GoogleCalendar()
         self.arduino = ArduinoController(0x08)
         self.gpio = RPiGPIO()
-        self.radio_db = RadioDB("../radio-settings.db")
+        self.radio_db = RadioDB("/home/pi/Python/NetRadioAlarmClockPi/radio-settings.db")
         self.webserver = webserver
         self.webserver.add_station_cb = self.add_station
         self.webserver.get_stations_cb = self.radio_db.get_stations
-        self.webserver.set_current_station_cb = self.radio_db.set_current_station
+        self.webserver.set_current_station_cb = self.set_current_station
         self.webserver.get_current_station_cb = self.get_current_station
         self.webserver.update_station_name_cb = self.radio_db.update_station_title
         self.webserver.get_stream_playing_cb = self.media.get_playing
+        self.webserver.play_stream_cb = self.start_stream
+        self.webserver.stop_stream_cb = self.stop_stream
+        self.webserver.set_volume_cb = self.media.set_volume
         self.alarm_running = False
         self.update_interval = 60 * 5
         self.state = "idle"
         self.gpio.set_snooze_btn_callback(self.alarm_snooze_event)
         self.webdev = False
+        self.stream_playing = False
 
-        if len(sys.argv) > 1:
-            if sys.argv[1] == "webdev":
+        # Set current station
+        url, station_title = self.get_current_station()
+        self.media.set_stream_url(url)
+
+        if len(sys.argv) > 0:
+            #print(sys.argv)
+            if sys.argv[1].replace("\r","") == "webdev":
+                print("Web development mode")
                 self.webdev = True
 
         if not self.webdev:
@@ -48,6 +57,11 @@ class NetRadioAlarmClock():
 
             self.arduino.set_vol_change_callback(self.media.set_volume)
             self.arduino.start_rot_enc_thread()
+
+    # Set current station from web interface
+    def set_current_station(self, station_url):
+        self.radio_db.set_current_station(station_url)
+        self.media.set_stream_url(station_url)
 
     def add_station(self, station_url):
         title = self.media.get_title_from_any_url(station_url)
@@ -65,6 +79,20 @@ class NetRadioAlarmClock():
     def test_alarm(self):
         pass
 
+    def start_stream(self):
+        self.media.play_stream()
+        self.stream_playing = True
+        volume = self.media.get_volume()
+        url, station_name = self.get_current_station()
+        self.webserver.emit_status(self.stream_playing, volume, station_name)
+
+    def stop_stream(self):
+        self.media.stop_stream()
+        self.stream_playing = False
+        volume = self.media.get_volume()
+        url, station_name = self.get_current_station()
+        webserver.emit_status(self.stream_playing, volume, station_name)
+
     def setup(self):
         #print("Station: " + self.mpdc.get_station_name())
         #print("Artist: " + self.mpdc.get_artist())
@@ -75,24 +103,25 @@ class NetRadioAlarmClock():
             self.arduino.update_lcd_idle()
 
             # read events from google calendar
-            #self.update_events("null")
-
+            self.update_events("null")
             self.media.set_stream_url(radio_triplej_url)
 
             # Testing
             #self.test_radio()
-            self.alarm_event(datetime.datetime.now())
+            #self.alarm_event(datetime.datetime.now())
+
 
         # update time on arduino
         #self.update_lcd_idle("null")
 
+
     def update_events(self, event_time):
         print("Updating events")
-        self.gcal = GoogleCalendar()
+        #self.gcal = GoogleCalendar()
         # get events
-        alarm_events = self.gcal.get_alarm_events()
+        #alarm_events = self.gcal.get_alarm_events()
 
-        self.sched.sync_events(alarm_events, self.alarm_event)
+        #self.sched.sync_events(alarm_events, self.alarm_event)
 
         # scedule next event update
         now = datetime.datetime.now()
@@ -152,6 +181,7 @@ class NetRadioAlarmClock():
         alarm_btn_thread = threading.Thread(target=self.run_alarm_button())
         alarm_btn_thread.daemon = True
         alarm_btn_thread.start()
+
 
 if __name__ == "__main__":
     print("Start.")

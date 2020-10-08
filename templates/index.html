@@ -22,10 +22,17 @@
               <li id="nav-item-stations" class="nav-item">
                 <a class="nav-link" href="#" id="nav-stations">Stations</a>
               </li>
+                <li id="nav-item-alarm-time" class="nav-item">
+                <a class="nav-link" href="#" id="nav-alarm-time">Alarm Time</a>
+              </li>
             </ul>
         </div>
     </nav>
     <div id="main">
+        <div id="next-alarm-ctr" class="row">
+            <span id="next-alarm-label" class="col-3">Next Alarm:</span>
+            <span id="next-alarm-time" class="col-6">???</span>
+        </div>
         <div id="status-page">
             <h1>Internet Radio Alarm Clock</h1>
             <div class="clock">
@@ -58,8 +65,62 @@
                 <div class="volume media-controls-item" title="Set volume">	<span class="volumeBar"></span></div>
             </div>
         </div>
+        <div id="alarm-time-page">
+            <h2>Alarm Time Settings</h2>
+            <h3>Weekday</h3>
+            <div id="weekday-options" class="row">
+                <div class="input-group">
+                    <span id="monday-ctr" class="col-2">
+                        <input type="checkbox" id="day-monday" name="weekday" aria-label="Monday">
+                        Monday
+                    </span>
+                    <span id="tuesday-ctr" class="col-2">
+                        <input type="checkbox" id="day-tuesday" aria-label="Tuesday">
+                        Tuesday
+                    </span>
+                    <span id="wednesday-ctr" class="col-2">
+                        <input type="checkbox" id="day-wednesday" aria-label="Wednesday">
+                        Wednesday
+                    </span>
+                    <span id="thursday-ctr" class="col-2">
+                        <input type="checkbox" id="day-thursday" aria-label="Thursday">
+                        Thursday
+                    </span>
+                    <span id="friday-ctr" class="col-2">
+                        <input type="checkbox" id="day-friday" aria-label="Friday">
+                        Friday
+                    </span>
+                </div>
+                <div id="weekday-time-picker">
+                    <input type="time">
+                </div>
+            </div>
+            <h3>Weekend</h3>
+            <div id="weekend-options" class="row">
+                <div class="input-group">
+                    <span id="saturday-ctr" class="col-2">
+                        <input type="checkbox" id="day-saturday" name="weekday" aria-label="Saturday">
+                        Saturday
+                    </span>
+                    <span id="sunday-ctr" class="col-2">
+                        <input type="checkbox" id="day-sunday" aria-label="Tuesday">
+                        Sunday
+                    </span>
+                </div>
+                <div id="weekend-time-picker">
+                    <input type="time">
+                </div>
+            </div>
+            <div id="save-btn-ctr" class="input-group row">
+                <span class="col-4"></span>
+                <button type="button" class="btn btn-primary col-4" id="alarm-save">Save</button>
+                <span class="col-4"></span>
+            </div>
+
+        </div>
         <div id="stations-page">
             <h2>Enter Radio Station URL</h2>
+            <a href="https://radio.abc.net.au/help/streams#!">ABC Radio Streams</a>
             <div class="input-group">
               <input id="new-station-url" type="text" class="form-control">
               <div class="input-group-append">
@@ -71,6 +132,7 @@
 
             </div>
         </div>
+
 
         <!-- Modal -->
         <div class="modal" id="edit-name-modal" tabindex="-1" role="dialog" aria-labelledby="edit-name-label" aria-hidden="true">
@@ -100,9 +162,14 @@
             </div>
           </div>
         </div>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
+        <script type="text/javascript" charset="utf-8">
+
+        </script>
         <script src="static/js/main.js"></script>
         <script src="static/js/clock.js"></script>
         <script src="static/js/media-controls.js"></script>
+
     </div>
 </body>
 </html>

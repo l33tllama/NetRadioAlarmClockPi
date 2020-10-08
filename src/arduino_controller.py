@@ -35,6 +35,7 @@ class ArduinoController():
         # if not i2c_lock:
         # i2c_lock = True
         self.rot_enc_thread.pause()
+        print("Writing " + str(byte_value))
         self.bus.write_i2c_block_data(self.address, 0x00, byte_value)
         self.rot_enc_thread.resume()
         # i2c_lock = False
@@ -65,7 +66,7 @@ class ArduinoController():
 
     def update_lcd_idle(self):
         localtime = time.localtime(time.time())
-        # print("Local time: " + time.asctime(localtime))
+        print("Local time: " + time.asctime(localtime))
         time_str = str(localtime.tm_wday + 1)
         time_str += "-" + str(localtime.tm_mday).zfill(2)
         time_str += "-" + str(localtime.tm_mon).zfill(2)

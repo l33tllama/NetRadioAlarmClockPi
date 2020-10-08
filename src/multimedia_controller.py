@@ -6,6 +6,8 @@ class MultimmediaController():
         self.stream_url = ""
         self.player_process = None
         self.playing = False
+        self.volume = 0
+        self.current_station_title = ""
 
     def set_stream_url(self, stream_url):
         self.stream_url = self.get_url_from_playlist_file(stream_url)
@@ -81,6 +83,7 @@ class MultimmediaController():
                 station_name = post_title_content[:semicolon_pos - 1]
             else:
                 station_name = station_url[7:39]
+            self.current_station_title = station_name
             return station_name
         else:
             return "No data"
@@ -97,9 +100,14 @@ class MultimmediaController():
         return self.playing
 
     def stop_stream(self):
-        self.player_process.kill()
+        if self.player_process:
+            self.player_process.kill()
         self.playing = False
 
     def set_volume(self, volume):
+        self.volume = volume
         volume_scaled = (volume / 100) * 65536
         subprocess.call(["/usr/bin/amixer", "sset", "'Master'", str(volume_scaled)])
+
+    def get_volume(self):
+        return self.volume

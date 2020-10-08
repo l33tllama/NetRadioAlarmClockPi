@@ -27,6 +27,8 @@ class RadioDB:
         self._connect()
         c = self.conn.cursor()
 
+        print(c)
+
         query_text = "SELECT * FROM saved_stations"
 
         c.execute(query_text)
@@ -41,6 +43,8 @@ class RadioDB:
     def set_current_station(self, station_url):
         self._connect()
         c = self.conn.cursor()
+
+        print("Setting current station: " + station_url)
 
         query_text_1 = "DELETE FROM current_station"
         query_text_2 = " INSERT INTO current_station (url) VALUES ('{url}')".format(url=station_url)
@@ -57,7 +61,13 @@ class RadioDB:
         query_text = "SELECT * from current_station"
 
         c.execute(query_text)
-        station_url = c.fetchone()[0]
+        station_url = c.fetchone()
+
+        if len(station_url) == 1:
+            station_url = station_url[0]
+
+        if station_url is None:
+            station_url = ""
 
         self.conn.close()
 
@@ -67,10 +77,18 @@ class RadioDB:
         self._connect()
         c = self.conn.cursor()
 
+        print("Station url: " + str(station_url))
+
         query_text = "SELECT * from saved_stations WHERE url = '{url}'".format(url=station_url)
+        print(query_text)
 
         c.execute(query_text)
-        title = c.fetchone()[1]
+        title = c.fetchone()
+
+        if title is None:
+            title = ""
+        else:
+            title = title[1]
 
         self.conn.close()
 

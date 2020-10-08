@@ -1,6 +1,20 @@
 let saved_stations = [];
 let current_station = "";
 let selected_station_index = -1;
+let radio_playing = false;
+let volume_change_cb = {};
+
+let socket = io();
+socket.on('connect', function() {
+    socket.emit('my event', {data: 'I\'m connected!'});
+});
+
+socket.on('station-status', function(msg) {
+    console.log(msg);
+    radio_playing = msg["playing"];
+    current_station = msg["station_name"];
+});
+
 function get_stations(){
     return new Promise(function(resolve, reject){
         $.ajax("/get_stations").done(function(resp){
@@ -10,6 +24,55 @@ function get_stations(){
         })
     })
 }
+
+function update_playing(){
+    if(radio_playing){
+        $("#play-stop-button").html("<i class=\"fas fa-stop\"></i>");
+        $("#playing-status").html("Playing:");
+    } else{
+        $("#play-stop-button").html("<i class=\"fas fa-play\"></i>");
+        $("#playing-status").html("Stopped:");
+    }
+}
+
+function update_volume(volume){
+    if(volume < 0 || volume > 100){
+        return;
+    }
+    let cmd = "/set_volume?volume=" + volume;
+    $.ajax(cmd).done(function(resp) {
+        if(resp !== "OK"){
+            console.log(resp);
+        }
+    }).fail(function (jqXHR, textStatus, errorThrown){
+        console.log(errorThrown);
+    });
+}
+
+$("#play-stop-button").click(function(){
+    let cmd = "";
+    if(radio_playing){
+        cmd = "/stop_radio";
+    } else {
+        cmd = "/start_radio";
+    }
+    console.log("Sending command: " + cmd);
+    $.ajax(cmd).done(function(resp){
+        console.log(resp);
+        if(resp === "OK"){
+            if(cmd === "/start_radio"){
+                radio_playing = true;
+            } else if (cmd === "/stop_radio"){
+                radio_playing = false;
+            }
+            update_playing()
+        } else {
+            console.log(resp);
+        }
+    }).fail(function (jqXHR, textStatus, errorThrown){
+        console.log(errorThrown);
+    })
+});
 
 function update_stations(resp_json) {
     return new Promise(function (resolve, reject) {
@@ -187,6 +250,7 @@ $("#add-station-btn").click(function(){
         $("#url-error-msg").html(e.message);
     } finally {
         if(verified_url != ""){
+            console.log(new_station_url);
             $("#url-error-msg").hide();
             send_station(new_station_url).then(function(resp){
                 //saved_stations.push(new_station_url);
@@ -210,13 +274,25 @@ $("#set-name-btn").click(function () {
 $("#nav-status").click(function(){
     $("#status-page").show();
     $("#stations-page").hide();
+    $("#alarm-time-page").hide();
     $("#nav-item-status").addClass("active");
     $("#nav-item-status").removeClass("active");
+    $("#nav-item-alarm-time").removeClass("active");
 });
 
 $("#nav-stations").click(function(){
     $("#stations-page").show();
     $("#status-page").hide();
+    $("#alarm-time-page").hide();
     $("#nav-item-stations").addClass("active");
     $("#nav-item-stations").removeClass("active");
+    $("#nav-item-alarm-time").removeClass("active");
+});
+$("#nav-alarm-time").click(function(){
+    $("#alarm-time-page").show();
+    $("#status-page").hide();
+    $("#stations-page").hide();
+    $("#nav-item-alarm-time").addClass("active");
+    $("#nav-item-stations").removeClass("active");
+    $("#nav-item-status").removeClass("active");
 });
