@@ -18,6 +18,9 @@ get_stream_playing_cb = None
 play_stream_cb = None
 stop_stream_cb = None
 set_volume_cb = None
+get_schedule_cb = None
+save_schedule_cb = None
+saved_schedule = None
 
 # Disable caching!
 @app.after_request
@@ -35,6 +38,28 @@ def add_header(r):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route("/save_schedule")
+def save_schedule():
+    global saved_schedule
+    schedule_b64_str = request.args.get("sched")
+    schedule_str = base64.b64decode(schedule_b64_str).decode('ascii')
+    schedule = json.loads(schedule_str)
+    saved_schedule = schedule
+    print(schedule)
+    if callable(save_schedule_cb):
+        save_schedule_cb(schedule)
+        return "OK"
+    else:
+        return "ERR: save_schedule_cb not callable"
+
+@app.route("/get_schedule")
+def get_schedule():
+    global saved_schedule
+    schedule = saved_schedule
+    sched_b64_str = base64.b64encode(json.dumps(schedule).encode('ascii')).decode('ascii')
+    return sched_b64_str
 
 @app.route("/add_station")
 def add_station():

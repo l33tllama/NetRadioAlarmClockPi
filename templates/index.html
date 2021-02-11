@@ -67,6 +67,7 @@
         </div>
         <div id="alarm-time-page">
             <h2>Alarm Time Settings</h2>
+            <h6 id="schedule-error-msg"></h6>
             <h3>Weekday</h3>
             <div id="weekday-options" class="row">
                 <div class="input-group">
@@ -90,9 +91,13 @@
                         <input type="checkbox" id="day-friday" aria-label="Friday">
                         Friday
                     </span>
+                    <span id="week-all-ctr" class="col-2">
+                        <input type="checkbox" id="day-all" aria-label="All">
+                        All
+                    </span>
                 </div>
                 <div id="weekday-time-picker">
-                    <input type="time">
+                    <input type="time" id="weekday-time">
                 </div>
             </div>
             <h3>Weekend</h3>
@@ -106,9 +111,13 @@
                         <input type="checkbox" id="day-sunday" aria-label="Tuesday">
                         Sunday
                     </span>
+                    <span id="weekend-all-ctr" class="col-2">
+                        <input type="checkbox" id="weekend-all" aria-label="All">
+                        All
+                    </span>
                 </div>
                 <div id="weekend-time-picker">
-                    <input type="time">
+                    <input type="time" id="weekend-time">
                 </div>
             </div>
             <div id="save-btn-ctr" class="input-group row">

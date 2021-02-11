@@ -4,6 +4,14 @@ let selected_station_index = -1;
 let radio_playing = false;
 let volume_change_cb = {};
 
+let saved_schedule = {
+    "weekday_time" : "",
+    "enabled_weekdays": [],
+    "weekend_time": "",
+    "enabled_weekend_days" : [],
+    "next_alarm": ""
+}
+
 let socket = io();
 socket.on('connect', function() {
     socket.emit('my event', {data: 'I\'m connected!'});
@@ -73,6 +81,199 @@ $("#play-stop-button").click(function(){
         console.log(errorThrown);
     })
 });
+
+$("#day-all").click(function(){
+    let checked = $("#day-all").prop("checked");
+    if(checked){
+        $("#day-monday").prop("checked", true);
+        $("#day-tuesday").prop("checked", true);
+        $("#day-wednesday").prop("checked", true);
+        $("#day-thursday").prop("checked", true);
+        $("#day-friday").prop("checked", true);
+    } else{
+        $("#day-monday").prop("checked", false);
+        $("#day-tuesday").prop("checked", false);
+        $("#day-wednesday").prop("checked", false);
+        $("#day-thursday").prop("checked", false);
+        $("#day-friday").prop("checked", false);
+    }
+})
+
+function set_alarm_settings(){
+    if(saved_schedule["enabled_weekdays"]["monday"]){
+        $("#day-monday").prop("checked", true);
+    }
+    if(saved_schedule["enabled_weekdays"]["tuesday"]){
+        $("#day-tuesday").prop("checked", true);
+    }
+    if(saved_schedule["enabled_weekdays"]["wednesday"]){
+        $("#day-wednesday").prop("checked", true);
+    }
+    if(saved_schedule["enabled_weekdays"]["thursday"]){
+        $("#day-thursday").prop("checked", true);
+    }
+    if(saved_schedule["enabled_weekdays"]["friday"]){
+        $("#day-friday").prop("checked", true);
+    }
+    if(saved_schedule["enabled_weekend_days"]["saturday"]){
+        $("#day-saturday").prop("checked", true);
+    }
+    if(saved_schedule["enabled_weekend_days"]["sunday"]){
+        $("#day-sunday").prop("checked", true);
+    }
+    $("#next-alarm-time").html(saved_schedule["next_alarm"]);
+}
+
+function read_alarm_settings(){
+    let weekday_all = $("day-all").prop("checked");
+    let weekday_time = $("#weekday-time").val();
+    let weekend_time = $("#weekend-time").val();
+    let error_msg = "";
+    let error = false;
+
+    if(weekday_time === ""){
+        error_msg += "Weekday time not set.";
+        error = true;
+    } else {
+        saved_schedule["weekday_time"] = weekday_time;
+    }
+
+    if(weekend_time === ""){
+        error_msg += "Weekend time not set.";
+        error = true;
+    } else {
+        saved_schedule["weekend_time"] = weekend_time;
+    }
+
+    if(weekday_all){
+        saved_schedule["enabled_weekdays"] = [
+            "monday", "tuesday", "wednesday",
+        "thursday", "friday"];
+    } else{
+        if($("#day-monday").prop("checked")){
+            saved_schedule["enabled_weekdays"].push("monday");
+        }
+        if($("#day-tuesday").prop("checked")){
+            saved_schedule["enabled_weekdays"].push("tuesday");
+        }
+        if($("#day-wednesday").prop("checked")){
+            saved_schedule["enabled_weekdays"].push("wednesday");
+        }
+        if($("#day-thursday").prop("checked")){
+            saved_schedule["enabled_weekdays"].push("thursday");
+        }
+        if($("#day-friday").prop("checked")){
+            saved_schedule["enabled_weekdays"].push("friday");
+        }
+    }
+    let weekend_all = $("#weekend-all").prop("checked");
+    if(weekend_all){
+        saved_schedule["enabled_weekend_days"] = ["saturday", "sunday"];
+    } else {
+        if($("#day-saturday").prop("checked")){
+            saved_schedule["enabled_weekend_days"].push("saturday");
+        }
+        if($("#day-sunday").prop("checked")){
+            saved_schedule["enabled_weekend_days"].push("sunday");
+        }
+    }
+    if(error){
+        $("#schedule-error-msg").html(error_msg);
+        return false;
+    } else {
+        return true;
+    }
+}
+
+function set_alarm_settings(){
+    $("#weekday-time").val(saved_schedule["weekday_time"]);
+    $("#weekend-time").val(saved_schedule["weekend_time"]);
+    for(let i = 0; i < saved_schedule["enabled_weekdays"].length; i++){
+        let day = saved_schedule["enabled_weekdays"][i];
+        if(day === "monday"){
+            $("#day-monday").prop("checked", true);
+        }
+        if(day === "tuesday"){
+            $("#day-tuesday").prop("checked", true);
+        }
+        if(day === "wednesday"){
+            $("#day-wednesday").prop("checked", true);
+        }
+        if(day === "thursday"){
+            $("#day-thursday").prop("checked", true);
+        }
+        if(day === "friday"){
+            $("#day-friday").prop("checked", true);
+        }
+    }
+    for(let i = 0; i < saved_schedule["enabled_weekend_days"].length; i++){
+        let day = saved_schedule["enabled_weekend_days"][i];
+        if(day === "saturday"){
+            $("#day-saturday").prop("checked", true);
+        }
+        if(day === "sunday"){
+            $("#day-sunday").prop("checked", true);
+        }
+    }
+}
+
+/* Not needed?
+function send_schedule(){
+    return new Promise(function(resolve, reject){
+        let schedule_b64 = btoa(JSON.stringify(saved_schedule));
+        $.ajax("/save_schedule&schedule_b64=" + schedule_b64).done(function (resp){
+            if(resp === "OK"){
+                resolve(resp);
+            } else {
+                reject(resp);
+            }
+        })
+    })
+} */
+
+function save_schedule(){
+    console.log(saved_schedule);
+
+    let sched_str = JSON.stringify(saved_schedule).replace(/\s/g, '');
+    console.log(sched_str);
+    let sched_b64 = btoa(sched_str);
+    console.log(sched_b64);
+    return new Promise(function(resolve, reject){
+        $.ajax("/save_schedule?sched=" + sched_b64).done(function(resp){
+            if(resp == "OK"){
+                resolve(resp);
+            } else{
+                reject(resp);
+            }
+        })
+    })
+}
+
+function get_schedule(){
+    return new Promise(function(resolve, reject){
+        $.ajax("/get_schedule").done(function(resp){
+            console.log("Schedule b64:" + resp);
+            let schedule_obj = {};
+            try {
+                schedule_obj = JSON.parse(atob(resp));
+            } catch (e){
+                console.log(e);
+                throw e;
+            }
+            resolve(schedule_obj);
+        })
+    })
+}
+
+$("#alarm-save").click(function(){
+    let success = read_alarm_settings();
+    if(success){
+        save_schedule().then(function(resp){
+             console.log("Saved");
+        });
+    }
+
+})
 
 function update_stations(resp_json) {
     return new Promise(function (resolve, reject) {
@@ -203,6 +404,16 @@ function refresh_stations() {
 
 $(document).ready(function(){
     refresh_stations();
+    get_schedule().then(function (resp){
+        console.log("Saved schedule: " + resp);
+        if(resp !== null) {
+            saved_schedule = resp;
+            set_alarm_settings();
+        }
+
+    }).catch(function(e){
+        console.log(e);
+    })
     console.log("Loaded.");
 });
 
@@ -219,7 +430,6 @@ function send_station(station_url){
             reject(errorThrown);
         })
     })
-
 }
 
 function update_station_name(station_url, new_name){

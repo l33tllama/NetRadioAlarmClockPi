@@ -19,6 +19,7 @@ class NetRadioAlarmClock():
     def __init__(self):
         self.media = MultimmediaController()
         self.sched = Scheduler()
+        self.schedule = {}
         #self.gcal = GoogleCalendar()
         self.arduino = ArduinoController(0x08)
         self.gpio = RPiGPIO()
@@ -33,6 +34,8 @@ class NetRadioAlarmClock():
         self.webserver.play_stream_cb = self.start_stream
         self.webserver.stop_stream_cb = self.stop_stream
         self.webserver.set_volume_cb = self.media.set_volume
+        self.webserver.get_schedule_cb = self.get_schedule
+        self.webserver.save_schedule_cb = self.save_schedule
         self.alarm_running = False
         self.update_interval = 60 * 5
         self.state = "idle"
@@ -43,6 +46,9 @@ class NetRadioAlarmClock():
         # Set current station
         url, station_title = self.get_current_station()
         self.media.set_stream_url(url)
+
+        # Load radio alarm schedule
+        self.load_schedule()
 
         if len(sys.argv) > 0:
             #print(sys.argv)
@@ -110,25 +116,62 @@ class NetRadioAlarmClock():
             #self.test_radio()
             #self.alarm_event(datetime.datetime.now())
 
-
         # update time on arduino
         #self.update_lcd_idle("null")
 
+    def load_events_from_db(self, cb_func):
+        events = self.radio_db.get_events()
+        for event in events:
+            self.sched.add_event(event["time"], cb_func)
 
-    def update_events(self, event_time):
-        print("Updating events")
-        #self.gcal = GoogleCalendar()
-        # get events
-        #alarm_events = self.gcal.get_alarm_events()
+    def get_schedule(self):
+        events = self.radio_db.get_events()
+        cur_time = datetime.datetime.now()
+        schedule = {
+            "weekday_time": "",
+            "enabled_weekdays": [],
+            "weekend_time": "",
+            "enabled_weekend_days": [],
+            "next_alarm": ""
+        }
+        for event in events:
+            e_time = datetime.datetime.strptime(event, "%Y-%m-%d %H:%M:%S")
+            if (e_time - cur_time).hours < 24:
+                schedule["next_alarm"] = event
+            if e_time.weekday() >=0 and e_time.weekday() < 5:
+                schedule["weekday_time"] = event
+            if e_time.weekday() >=5 and e_time.weekday() < 7:
+                schedule["weekend_time"] = event
+            if e_time.weekday() == 0:
+                schedule["enabled_weekdays"].append("monday")
+            if e_time.weekday() == 1:
+                schedule["enabled_weekdays"].append("tuesday")
+            if e_time.weekday() == 2:
+                schedule["enabled_weekdays"].append("wednesday")
+            if e_time.weekday() == 3:
+                schedule["enabled_weekdays"].append("thursday")
+            if e_time.weekday() == 4:
+                schedule["enabled_weekdays"].append("friday")
+            if e_time.weekday() == 5:
+                schedule["enabled_weekend_days"].append("saturday")
+            if e_time.weekday() == 6:
+                schedule["enabled_weekend_days"].append("sunday")
 
-        #self.sched.sync_events(alarm_events, self.alarm_event)
+    def save_schedule(self, schedule):
+        self.schedule = schedule
+        self.radio_db.save_schedule(schedule)
 
-        # scedule next event update
-        now = datetime.datetime.now()
-        next_update_time = datetime.datetime.now() + datetime.timedelta(seconds=self.update_interval)
-        print(now.time())
-        print(next_update_time.time())
-        self.sched.schedule_event(next_update_time, self.update_events)
+    def load_schedule(self):
+        self.schedule = self.radio_db.load_schedule()
+        self.webserver.saved_schedule = self.schedule
+        print("Saved schedule: " + str(self.schedule))
+
+    def add_events_new(self, events, cb_func):
+        self.radio_db.clear_events()
+        self.sched.remove_all_events()
+        for event in events:
+            self.radio_db.add_event(event["time"])
+            self.sched.add_event(event["time"], cb_func)
 
     def update_lcd_playing(self, time_str):
         #station = self.mpdc.get_station_name()

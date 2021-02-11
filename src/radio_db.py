@@ -1,6 +1,11 @@
+import datetime
 import sqlite3
 
 # SQLite 3 Class for managing net radio settings
+def str_to_list(str):
+    return str.replace("[", "").replace("]","").replace("'","").replace(" ", "").split(",")
+
+
 class RadioDB:
     def __init__(self, db_filename):
         self.db_filename = db_filename
@@ -8,6 +13,75 @@ class RadioDB:
 
     def _connect(self):
         self.conn = sqlite3.connect(self.db_filename)
+
+    # Get alarm events from db
+    def get_events(self):
+        self._connect()
+        c = self.conn.cursor()
+
+        events = []
+        query_text = "SELECT * FROM saved_events"
+        c.execute(query_text)
+
+        for row in c.fetchall():
+            events.append(row[0])
+
+        return events
+
+    # Add new events to db
+    def add_events(self, events):
+        self._connect()
+        c = self.conn.cursor()
+
+        for _time in events:
+            time_str = datetime.datetime.time.strftime("%Y-%m-%d %H:%M:%S")
+            query_text = "INSERT INTO saved_events (time) " + time_str
+            c.execute(query_text)
+
+        self.conn.commit()
+        self.conn.close()
+
+    # Remove all events from db (setting new alarms)
+    def clear_events(self):
+        self._connect()
+        c = self.conn.cursor()
+        query_text = "DELETE FROM saved_events"
+        c.execute(query_text)
+        self.conn.commit()
+        self.conn.close()
+
+    def save_schedule(self, schedule):
+        self._connect()
+        c = self.conn.cursor()
+
+        query_text = "INSERT INTO alarm_settings (weekday_time, enabled_weekdays, weekend_time, enabled_weekend_days) VALUES (\"{a}\", \"{b}\", \"{c}\", \"{d}\")".format(
+            a=schedule['weekday_time'], b=schedule["enabled_weekdays"], c=schedule["weekend_time"], d=schedule["enabled_weekend_days"])
+        print(query_text)
+        c.execute(query_text)
+        self.conn.commit()
+        self.conn.close()
+
+    def load_schedule(self):
+        self._connect()
+        c = self.conn.cursor()
+
+        query_text = "SELECT * FROM alarm_settings"
+
+        c.execute(query_text)
+        results = c.fetchall()[0]
+        print(results)
+        if results:
+            schedule = {
+                "weekday_time": results[0],
+                "enabled_weekdays": str_to_list(results[1]),
+                "weekend_time": results[2],
+                "enabled_weekend_days": str_to_list(results[3]),
+            }
+            print("Schedule from DB:")
+            print(schedule)
+            return schedule
+        else:
+            return None
 
     def add_station(self, station_url, stream_title):
         self._connect()
@@ -18,7 +92,6 @@ class RadioDB:
             url=station_url, title=stream_title)
 
         c.execute(query_text)
-
         self.conn.commit()
         self.conn.close()
 
@@ -63,6 +136,9 @@ class RadioDB:
         c.execute(query_text)
         station_url = c.fetchone()
 
+        if station_url is None:
+            return ""
+
         if len(station_url) == 1:
             station_url = station_url[0]
 
@@ -105,3 +181,11 @@ class RadioDB:
 
         self.conn.commit()
         self.conn.close()
+
+    def add_alarms_from_schedule(self, schedule):
+        self._connect()
+
+        c = self.conn.cursor()
+
+        query_text = "INSERT INTO alarm_settings (weekday_time, enabled_weekdays, weekend_time, enabled_weekend_days)"\
+            " VALUES {weekday_time} {enab}"
