@@ -50,6 +50,10 @@ class NetRadioAlarmClock():
         # Load radio alarm schedule
         self.load_schedule()
 
+        test_time = datetime.datetime(2021, 2, 23, 20, 14, 0)
+
+        self.sched.add_event(test_time, self.alarm_event)
+
         if len(sys.argv) > 0:
             #print(sys.argv)
             if sys.argv[1].replace("\r","") == "webdev":
@@ -201,18 +205,22 @@ class NetRadioAlarmClock():
         self.state = "idle"
         self.media.stop_stream()
         self.alarm_running = False
-        self.update_lcd_idle("null")
+        if not self.webdev:
+            self.update_lcd_idle("null")
 
-    def alarm_event(self, event_time):
+    def alarm_event(self):
         self.state = "playing"
         self.media.play_stream()
         self.alarm_running = True
-        self.update_lcd_playing("null")
+        if not self.webdev:
+            self.update_lcd_playing("null")
         print("woop")
         pass
 
     def run_alarm_button(self):
         while True:
+            self.sched.process_events()
+            time.sleep(0.5)
             if self.alarm_running:
                 self.gpio.snooze_button_led_on()
                 time.sleep(0.5)
@@ -220,10 +228,11 @@ class NetRadioAlarmClock():
                 time.sleep(0.5)
 
     def run(self):
-        self.webserver.run()
-        alarm_btn_thread = threading.Thread(target=self.run_alarm_button())
+        alarm_btn_thread = threading.Thread(target=self.run_alarm_button)
         alarm_btn_thread.daemon = True
         alarm_btn_thread.start()
+        self.webserver.run()
+
 
 
 if __name__ == "__main__":
