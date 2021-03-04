@@ -12,6 +12,16 @@ let saved_schedule = {
     "next_alarm": ""
 }
 
+function reset_saved_schedule(){
+    saved_schedule = {
+    "weekday_time" : "",
+    "enabled_weekdays": [],
+    "weekend_time": "",
+    "enabled_weekend_days" : [],
+    "next_alarm": ""
+}
+}
+
 let socket = io();
 socket.on('connect', function() {
     socket.emit('my event', {data: 'I\'m connected!'});
@@ -125,8 +135,9 @@ function set_alarm_settings(){
 }
 
 function read_alarm_settings(){
+    reset_saved_schedule();
     let weekday_all = $("day-all").prop("checked");
-    let weekday_time = $("#weekday-time").val();
+        let weekday_time = $("#weekday-time").val();
     let weekend_time = $("#weekend-time").val();
     let error_msg = "";
     let error = false;

@@ -2,7 +2,6 @@ import time
 import threading
 import datetime
 
-from google_calendar import GoogleCalendar
 from multimedia_controller import MultimmediaController
 from rpi_gpio import RPiGPIO
 from scheduler import Scheduler
@@ -47,11 +46,12 @@ class NetRadioAlarmClock():
         url, station_title = self.get_current_station()
         self.media.set_stream_url(url)
 
-        # Load radio alarm schedule
+        # Load radio alarm schedule and set up events if there are any
         self.load_schedule()
+        self.create_events()
 
+        # Test event
         test_time = datetime.datetime(2021, 2, 23, 20, 14, 0)
-
         self.sched.add_event(test_time, self.alarm_event)
 
         if len(sys.argv) > 0:
@@ -123,11 +123,6 @@ class NetRadioAlarmClock():
         # update time on arduino
         #self.update_lcd_idle("null")
 
-    def load_events_from_db(self, cb_func):
-        events = self.radio_db.get_events()
-        for event in events:
-            self.sched.add_event(event["time"], cb_func)
-
     def get_schedule(self):
         events = self.radio_db.get_events()
         cur_time = datetime.datetime.now()
@@ -162,13 +157,51 @@ class NetRadioAlarmClock():
                 schedule["enabled_weekend_days"].append("sunday")
 
     def save_schedule(self, schedule):
+        print("Saving new schedule?")
         self.schedule = schedule
         self.radio_db.save_schedule(schedule)
+        self.create_events()
 
     def load_schedule(self):
         self.schedule = self.radio_db.load_schedule()
         self.webserver.saved_schedule = self.schedule
         print("Saved schedule: " + str(self.schedule))
+
+    def create_events(self):
+
+        days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        if self.schedule is None:
+            return
+        enabled_weekdays = self.schedule["enabled_weekdays"]
+        enabled_weekend_days = self.schedule["enabled_weekend_days"]
+        weekday_time = datetime.datetime.strptime(self.schedule["weekday_time"], "%H:%M")
+        weekend_time = datetime.datetime.strptime(self.schedule["weekend_time"], "%H:%M")
+
+        def get_day_integer(day_str):
+            for i in range(0, len(days)):
+                day_i_str = days[i]
+                if day_i_str == day_str:
+                    return i
+            print("ERROR: No day for : '" + day_str + "'")
+            return -1
+
+        self.sched.remove_all_events()
+
+        for day in enabled_weekdays:
+            day_int = get_day_integer(day)
+            if day_int >= 0:
+                print("Adding alarm for day: " + days[day_int])
+                self.sched.add_weekday_event_day(day_int, weekday_time, self.alarm_event)
+            else:
+                print("ERROR: weekday int not found for '" + day +"', " + str(day_int))
+
+        for day in enabled_weekend_days:
+            day_int = get_day_integer(day)
+            if day_int > 0:
+                print("Adding alarm for weekend day: " + days[day_int])
+                self.sched.add_weekday_event_day(day_int, weekend_time, self.alarm_event)
+            else:
+                print("ERROR: weekend day int not found for '" + day + "'")
 
     def add_events_new(self, events, cb_func):
         self.radio_db.clear_events()
@@ -220,7 +253,7 @@ class NetRadioAlarmClock():
     def run_alarm_button(self):
         while True:
             self.sched.process_events()
-            time.sleep(0.5)
+            time.sleep(3)
             if self.alarm_running:
                 self.gpio.snooze_button_led_on()
                 time.sleep(0.5)

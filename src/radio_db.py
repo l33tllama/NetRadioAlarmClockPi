@@ -53,12 +53,15 @@ class RadioDB:
     def save_schedule(self, schedule):
         self._connect()
         c = self.conn.cursor()
-
-        query_text = "INSERT INTO alarm_settings (weekday_time, enabled_weekdays, weekend_time, enabled_weekend_days) VALUES (\"{a}\", \"{b}\", \"{c}\", \"{d}\")".format(
+        query_text1 = "DELETE FROM alarm_settings;"
+        query_text2 = "INSERT OR REPLACE INTO alarm_settings (weekday_time, enabled_weekdays, weekend_time, enabled_weekend_days) VALUES (\"{a}\", \"{b}\", \"{c}\", \"{d}\")".format(
             a=schedule['weekday_time'], b=schedule["enabled_weekdays"], c=schedule["weekend_time"], d=schedule["enabled_weekend_days"])
-        print(query_text)
-        c.execute(query_text)
+        print(query_text1 + ";" + query_text2)
+        c.execute(query_text1)
         self.conn.commit()
+        c.execute(query_text2)
+        self.conn.commit()
+
         self.conn.close()
 
     def load_schedule(self):
@@ -68,9 +71,11 @@ class RadioDB:
         query_text = "SELECT * FROM alarm_settings"
 
         c.execute(query_text)
-        results = c.fetchall()[0]
+        results = c.fetchall()
+
         print(results)
         if results:
+            results = results[0]
             schedule = {
                 "weekday_time": results[0],
                 "enabled_weekdays": str_to_list(results[1]),
