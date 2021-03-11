@@ -1,10 +1,11 @@
 import threading
 import time
+from queue import Queue
 
 from smbus2 import SMBus
 
 class RotEncThread(threading.Thread):
-    def __init__(self, i2c_address):
+    def __init__(self, i2c_address, queue):
         threading.Thread.__init__(self)
         self.read_volume = 0
         self.last_read_volume = 0
@@ -12,8 +13,9 @@ class RotEncThread(threading.Thread):
         self.arduino_addr = i2c_address
         self.bus = SMBus(1)
         self.get_vol_arr = [103, 101, 116, 118, 0]
-        self.lock = threading.Lock()
+        #self.lock = threading.Lock()
         self.paused = False
+        self.queue = queue
 
     def set_vol_change_func(self, func):
         self.vol_change_func = func
@@ -27,7 +29,14 @@ class RotEncThread(threading.Thread):
     def run(self):
         # try:
         while True:
-            self.lock.acquire()
+            data = self.queue.get()
+            if data is not None:
+                if data is False:
+                    print("ROT ENC THREAD PAUSING")
+                    self.paused = True
+                else:
+                    print("ROT ENC THREAD RESUMING")
+                    self.paused = False
             try:
                 self.bus.write_i2c_block_data(self.arduino_addr, 0x00, self.get_vol_arr)
                 global i2c_lock
@@ -37,7 +46,7 @@ class RotEncThread(threading.Thread):
                         self.bus.write_byte(self.arduino_addr, 0x01)
                         pass
                     except OSError:
-                        # print("OS Error (write)")
+                        print("OS Error (write)")
                         pass
                     finally:
                         pass
@@ -50,7 +59,7 @@ class RotEncThread(threading.Thread):
                         pass
                     except OSError:
                         pass
-                        # print("OS error (read)")
+                        print("OS error (read)")
                     finally:
                         pass
                         # i2c_lock = False
@@ -72,7 +81,8 @@ class RotEncThread(threading.Thread):
                     else:
                         self.last_read_volume = self.read_volume
             finally:
-                self.lock.release()
+                #self.lock.release()
+                pass
                 #time.sleep(0.01)
     # finally:
     #    GPIO.cleanup()

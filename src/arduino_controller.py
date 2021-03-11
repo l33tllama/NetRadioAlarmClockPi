@@ -6,9 +6,10 @@ from global_functions import StringToBytes
 from rotary_encoder import RotEncThread
 
 class ArduinoController():
-    def __init__(self, i2c_address):
+    def __init__(self, i2c_address, queue):
         self.bus = SMBus(1)
         self.address = i2c_address
+        self.queue = queue
         self.rot_enc_thread = None
         self.vol_change_cb = None
 
@@ -17,7 +18,7 @@ class ArduinoController():
 
     def start_rot_enc_thread(self):
         try:
-            self.rot_enc_thread = RotEncThread(self.address)
+            self.rot_enc_thread = RotEncThread(self.address, self.queue)
             self.rot_enc_thread.set_vol_change_func(self.vol_change_cb)
             self.rot_enc_thread.daemon = True
             self.rot_enc_thread.start()
@@ -28,16 +29,20 @@ class ArduinoController():
     def write_data(self, data):
         if len(data) > 31:
             print("Data length too long!!")
-        data = data[:31]
-        print("Writing: " + str(data))
+            return
+
+        #data = data[:31]
+        #print("Writing: " + str(data))
         byte_value = StringToBytes(data)
-        global i2c_lock
+        #global i2c_lock
         # if not i2c_lock:
         # i2c_lock = True
-        self.rot_enc_thread.pause()
-        print("Writing " + str(byte_value))
+        self.queue.put(False)
+        time.sleep(0.1)
+        #print("Writing " + str(byte_value))
         self.bus.write_i2c_block_data(self.address, 0x00, byte_value)
-        self.rot_enc_thread.resume()
+        time.sleep(0.1)
+        self.queue.put(True)
         # i2c_lock = False
         # else:
         #   print("Can't write - i2c lock")
@@ -66,7 +71,7 @@ class ArduinoController():
 
     def update_lcd_idle(self):
         localtime = time.localtime(time.time())
-        print("Local time: " + time.asctime(localtime))
+        #print("Local time: " + time.asctime(localtime))
         time_str = str(localtime.tm_wday + 1)
         time_str += "-" + str(localtime.tm_mday).zfill(2)
         time_str += "-" + str(localtime.tm_mon).zfill(2)

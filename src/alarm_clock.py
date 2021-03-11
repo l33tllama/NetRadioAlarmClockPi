@@ -9,6 +9,7 @@ import webserver
 import sys
 from radio_db import RadioDB
 from arduino_controller import ArduinoController
+from queue import Queue
 
 radio_triplej_url = "http://www.abc.net.au/res/streaming/audio/mp3/triplej.pls"
 
@@ -16,11 +17,12 @@ i2c_lock = False
 
 class NetRadioAlarmClock():
     def __init__(self):
+        self.queue = Queue()
         self.media = MultimmediaController()
         self.sched = Scheduler()
         self.schedule = {}
         #self.gcal = GoogleCalendar()
-        self.arduino = ArduinoController(0x08)
+        self.arduino = ArduinoController(0x08, self.queue)
         self.gpio = RPiGPIO()
         self.radio_db = RadioDB("/home/pi/Python/NetRadioAlarmClockPi/radio-settings.db")
         self.webserver = webserver
@@ -42,6 +44,7 @@ class NetRadioAlarmClock():
         self.webdev = False
         self.stream_playing = False
 
+
         # Set current station
         url, station_title = self.get_current_station()
         self.media.set_stream_url(url)
@@ -54,7 +57,7 @@ class NetRadioAlarmClock():
         test_time = datetime.datetime(2021, 2, 23, 20, 14, 0)
         self.sched.add_event(test_time, self.alarm_event)
 
-        if len(sys.argv) > 0:
+        if len(sys.argv) > 1:
             #print(sys.argv)
             if sys.argv[1].replace("\r","") == "webdev":
                 print("Web development mode")
@@ -109,16 +112,19 @@ class NetRadioAlarmClock():
         #print("Title: " + self.mpdc.get_title())
 
         if not self.webdev:
+            time.sleep(5)
             # display idle screen
+            print("Updating arduino idle (with time)")
             self.arduino.update_lcd_idle()
 
             # read events from google calendar
-            self.update_events("null")
-            self.media.set_stream_url(radio_triplej_url)
+            #self.update_events("null")
+            #self.media.set_stream_url(radio_triplej_url)
 
             # Testing
             #self.test_radio()
             #self.alarm_event(datetime.datetime.now())
+            pass
 
         # update time on arduino
         #self.update_lcd_idle("null")
@@ -168,7 +174,6 @@ class NetRadioAlarmClock():
         print("Saved schedule: " + str(self.schedule))
 
     def create_events(self):
-
         days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
         if self.schedule is None:
             return
@@ -216,30 +221,31 @@ class NetRadioAlarmClock():
         #title = self.mpdc.get_title()
 
         station = self.media.get_station_title()
-
         print("station: " + station)
 
         self.arduino.update_lcd_playing(station, "", "")
-
         one_second = datetime.datetime.now() + datetime.timedelta(seconds=1)
         
         if self.state == "playing":
             self.sched.schedule_event(one_second, self.update_lcd_playing)
 
     
-    def update_lcd_idle(self, time_str):
+    def update_lcd_idle(self):
         self.arduino.update_lcd_idle()
-        one_second = datetime.datetime.now() + datetime.timedelta(seconds=1)
+        #one_second = datetime.datetime.now() + datetime.timedelta(seconds=1)
         
-        if self.state == "idle":
-            self.sched.schedule_event(one_second, self.update_lcd_idle)
+        #if self.state == "idle":
+        #    self.sched.schedule_event(one_second, self.update_lcd_idle)
 
     def alarm_snooze_event(self, channel):
+        print("SNOOZING!! ZZZZ")
         self.state = "idle"
         self.media.stop_stream()
         self.alarm_running = False
+        radio_rest_time = datetime.datetime.now() + datetime.timedelta(seconds=5)
+        self.sched.add_event(radio_rest_time, self.alarm_event)
         if not self.webdev:
-            self.update_lcd_idle("null")
+            self.update_lcd_idle()
 
     def alarm_event(self):
         self.state = "playing"
@@ -248,7 +254,6 @@ class NetRadioAlarmClock():
         if not self.webdev:
             self.update_lcd_playing("null")
         print("woop")
-        pass
 
     def run_alarm_button(self):
         while True:
@@ -260,13 +265,24 @@ class NetRadioAlarmClock():
                 self.gpio.snooze_button_lef_off()
                 time.sleep(0.5)
 
+    def update_idle_thread(self):
+        #self.arduino = ArduinoController(0x08)
+        while True:
+            #TODO: run main playing screen when playing
+            self.arduino.update_lcd_idle()
+            time.sleep(5)
+
     def run(self):
         alarm_btn_thread = threading.Thread(target=self.run_alarm_button)
         alarm_btn_thread.daemon = True
         alarm_btn_thread.start()
+        update_idle_thread = threading.Thread(target=self.update_idle_thread)
+        update_idle_thread.daemon = True
+        update_idle_thread.start()
+
+        print("Start web server?")
+
         self.webserver.run()
-
-
 
 if __name__ == "__main__":
     print("Start.")

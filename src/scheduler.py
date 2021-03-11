@@ -9,10 +9,11 @@ class Scheduler():
 
     # Add an event if not exists
     def add_event(self, time, cb_func):
+        print("Adding new event " + str(time))
         time_str = time.strftime("%Y-%m-%d %H:%M:%S")
         event_found = False
         for event in self._fixed_events:
-            if time.strptime(event["time"], "%Y-%m-%d %H:%M:%S") == time_str:
+            if event["time"].strftime("%Y-%m-%d %H:%M:%S") == time_str:
                 event_found = True
         if not event_found:
             self._fixed_events.append({"time": time, "cb_func": cb_func})
@@ -33,7 +34,7 @@ class Scheduler():
             e_time = event["time"]
             e_str = "{0}, {1}, {2}".format(e_time.hour, e_time.minute, e_time.weekday())
             cur_str = "{0}, {1}, {2}".format(cur_time.hour, cur_time.minute, cur_time.weekday())
-            #print("event: " + e_str + " - cur " + cur_str)
+            print("event: " + e_str + " - cur " + cur_str)
             cur_tuple = (cur_time.hour, cur_time.minute, cur_time.weekday())
             if e_time.hour == cur_time.hour and \
                 e_time.minute == cur_time.minute and \
