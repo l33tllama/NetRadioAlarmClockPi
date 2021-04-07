@@ -29,7 +29,9 @@ class RotEncThread(threading.Thread):
     def run(self):
         # try:
         while True:
-            data = self.queue.get()
+            data = None
+            if not self.queue.empty():
+                data = self.queue.get()
             if data is not None:
                 if data is False:
                     print("ROT ENC THREAD PAUSING")
@@ -37,8 +39,11 @@ class RotEncThread(threading.Thread):
                 else:
                     print("ROT ENC THREAD RESUMING")
                     self.paused = False
+            else:
+                self.paused = True
             try:
-                self.bus.write_i2c_block_data(self.arduino_addr, 0x00, self.get_vol_arr)
+                if not self.paused:
+                    self.bus.write_i2c_block_data(self.arduino_addr, 0x00, self.get_vol_arr)
                 global i2c_lock
                 if not self.paused:
                     # i2c_lock = True

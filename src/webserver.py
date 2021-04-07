@@ -21,6 +21,7 @@ set_volume_cb = None
 get_schedule_cb = None
 save_schedule_cb = None
 saved_schedule = None
+alarm_running_queue = None
 
 # Disable caching!
 @app.after_request
@@ -120,16 +121,18 @@ def get_status():
 
 @app.route("/start_radio")
 def start_radio():
+    global alarm_running_queue
     if callable(play_stream_cb):
-        play_stream_cb()
+        play_stream_cb(alarm_running_queue)
         return "OK"
     else:
         return "ERR: play_stream_cb not callable"
 
 @app.route("/stop_radio")
 def stop_radio():
+    alarm_running_queue
     if callable(stop_stream_cb):
-        stop_stream_cb()
+        stop_stream_cb(alarm_running_queue)
         return "OK"
     else:
         return "ERR: stop_stream_cb not callable"

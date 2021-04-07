@@ -18,6 +18,7 @@ i2c_lock = False
 class NetRadioAlarmClock():
     def __init__(self):
         self.queue = Queue()
+        self.alarm_running_queue = Queue()
         self.media = MultimmediaController()
         self.sched = Scheduler()
         self.schedule = {}
@@ -37,13 +38,15 @@ class NetRadioAlarmClock():
         self.webserver.set_volume_cb = self.media.set_volume
         self.webserver.get_schedule_cb = self.get_schedule
         self.webserver.save_schedule_cb = self.save_schedule
+        self.webserver.alarm_running_queue = self.alarm_running_queue
         self.alarm_running = False
         self.update_interval = 60 * 5
         self.state = "idle"
         self.gpio.set_snooze_btn_callback(self.alarm_snooze_event)
         self.webdev = False
         self.stream_playing = False
-
+        self.alarm_running_queue.put(False)
+        self.last_snooze_time = datetime.datetime.now()
 
         # Set current station
         url, station_title = self.get_current_station()
@@ -92,16 +95,21 @@ class NetRadioAlarmClock():
     def test_alarm(self):
         pass
 
-    def start_stream(self):
+    def start_stream(self, queue):
         self.media.play_stream()
         self.stream_playing = True
+        queue.put(True)
         volume = self.media.get_volume()
         url, station_name = self.get_current_station()
+        if not self.webdev:
+            self.update_lcd_playing("null")
         self.webserver.emit_status(self.stream_playing, volume, station_name)
 
-    def stop_stream(self):
+
+    def stop_stream(self, queue):
         self.media.stop_stream()
         self.stream_playing = False
+        queue.put(False)
         volume = self.media.get_volume()
         url, station_name = self.get_current_station()
         webserver.emit_status(self.stream_playing, volume, station_name)
@@ -224,10 +232,9 @@ class NetRadioAlarmClock():
         print("station: " + station)
 
         self.arduino.update_lcd_playing(station, "", "")
-        one_second = datetime.datetime.now() + datetime.timedelta(seconds=1)
-        
-        if self.state == "playing":
-            self.sched.schedule_event(one_second, self.update_lcd_playing)
+        #one_second = datetime.datetime.now() + datetime.timedelta(seconds=1)
+        #if self.state == "playing":
+        #    self.sched.schedule_event(one_second, self.update_lcd_playing)
 
     
     def update_lcd_idle(self):
@@ -238,50 +245,93 @@ class NetRadioAlarmClock():
         #    self.sched.schedule_event(one_second, self.update_lcd_idle)
 
     def alarm_snooze_event(self, channel):
+        if self.last_snooze_time is not None:
+            delta_time = datetime.datetime.now() - self.last_snooze_time
+            if delta_time.total_seconds() < 4:
+                print("Alarm OFF! Time to get up!!")
+                self.alarm_running_queue.put(False)
+                return
         print("SNOOZING!! ZZZZ")
-        self.state = "idle"
+        self.state = "snooze"
         self.media.stop_stream()
         self.alarm_running = False
-        radio_rest_time = datetime.datetime.now() + datetime.timedelta(seconds=5)
+        radio_rest_time = datetime.datetime.now() + datetime.timedelta(minutes=7)
         self.sched.add_event(radio_rest_time, self.alarm_event)
+        self.last_snooze_time = datetime.datetime.now()
+        self.alarm_running_queue.put(False)
+        # Magic debounce?
+        time.sleep(0.2)
         if not self.webdev:
             self.update_lcd_idle()
 
     def alarm_event(self):
+        if self.state == "snooze":
+            now = datetime.datetime.now()
+            now_h = now.hour
+            now_m = now.minute
+            last_m = self.last_snooze_time.minute
+            last_h = self.last_snooze_time.hour
+            # If we snoozed in the same minute, don't alarm again (bit of a hack)
+            if now_h == last_h and now_m == last_m:
+                return
         self.state = "playing"
         self.media.play_stream()
         self.alarm_running = True
+        self.alarm_running_queue.put(True)
         if not self.webdev:
             self.update_lcd_playing("null")
-        print("woop")
 
-    def run_alarm_button(self):
+    def run_alarm_button(self, queue):
+        running = False
         while True:
+            data = None
+            if not queue.empty():
+                data = queue.get()
+            if data is True:
+                running = True
+            elif data is False:
+                running = False
             self.sched.process_events()
-            time.sleep(3)
-            if self.alarm_running:
+            time.sleep(1)
+            if running:
+                print("Running!")
+                self.update_lcd_playing("null")
                 self.gpio.snooze_button_led_on()
                 time.sleep(0.5)
                 self.gpio.snooze_button_lef_off()
                 time.sleep(0.5)
+            else:
+                print("idle")
+                self.arduino.update_lcd_idle()
+                time.sleep(4)
 
-    def update_idle_thread(self):
+    def update_idle_thread(self, queue):
         #self.arduino = ArduinoController(0x08)
+        idle = True
         while True:
-            #TODO: run main playing screen when playing
-            self.arduino.update_lcd_idle()
-            time.sleep(5)
+            data = None
+            if not queue.empty():
+                data = queue.get()
+            if data is False:
+                idle = True
+            elif data is True:
+                idle = False
+            if idle:
+                #TODO: run main playing screen when playing
+                print("Idling")
+                self.arduino.update_lcd_idle()
+                time.sleep(5)
 
     def run(self):
-        alarm_btn_thread = threading.Thread(target=self.run_alarm_button)
+        alarm_btn_thread = threading.Thread(target=self.run_alarm_button, args=(self.alarm_running_queue,))
         alarm_btn_thread.daemon = True
         alarm_btn_thread.start()
-        update_idle_thread = threading.Thread(target=self.update_idle_thread)
-        update_idle_thread.daemon = True
-        update_idle_thread.start()
-
+        #update_idle_thread = threading.Thread(target=self.update_idle_thread, args=(self.alarm_running_queue,))
+        #update_idle_thread.daemon = True
+        #update_idle_thread.start()
+        #while True:
+        #    time.sleep(1)
         print("Start web server?")
-
         self.webserver.run()
 
 if __name__ == "__main__":
