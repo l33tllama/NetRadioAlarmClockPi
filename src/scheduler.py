@@ -67,6 +67,9 @@ class Scheduler():
                 else:
                     print("schedule cb_func not callable!")
 
+    def remove_fixed_events(self):
+        self._fixed_events.clear()
+
     def remove_all_events(self):
         self._fixed_events.clear()
         self._daily_events.clear()

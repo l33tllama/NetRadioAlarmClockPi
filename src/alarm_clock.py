@@ -46,7 +46,9 @@ class NetRadioAlarmClock():
         self.webdev = False
         self.stream_playing = False
         self.alarm_running_queue.put(False)
-        self.last_snooze_time = datetime.datetime.now()
+        self.last_snooze_time = None
+        self.button_press_count = 0
+        self.debouncing = False
 
         # Set current station
         url, station_title = self.get_current_station()
@@ -120,7 +122,7 @@ class NetRadioAlarmClock():
         #print("Title: " + self.mpdc.get_title())
 
         if not self.webdev:
-            time.sleep(5)
+            #time.sleep(5)
             # display idle screen
             print("Updating arduino idle (with time)")
             self.arduino.update_lcd_idle()
@@ -243,27 +245,47 @@ class NetRadioAlarmClock():
         
         #if self.state == "idle":
         #    self.sched.schedule_event(one_second, self.update_lcd_idle)
+    def alarm_snooze_delay(self):
+        # If button pressed only once - snoozing
+        if self.button_press_count == 1:
+            print("SNOOZING!! ZZZZ")
+            self.state = "snooze"
+            self.media.stop_stream()
+            self.alarm_running = False
+            radio_rest_time = datetime.datetime.now() + datetime.timedelta(minutes=7)
+            self.sched.add_event(radio_rest_time, self.alarm_event)
+            self.alarm_running_queue.put(False)
+            self.last_snooze_time = None
+            self.button_press_count = 0
+            if not self.webdev:
+                self.update_lcd_idle()
+        elif self.button_press_count > 1:
+            print("Alarm OFF! Time to get up!!")
+            self.alarm_running_queue.put(False)
+            # Clear snooze event
+            self.sched.remove_fixed_events()
+            self.button_press_count = 0
+        else:
+            print("Button pressed more than once! I see that.. Alarm stop?")
+
+    def debounce(self):
+        self.debouncing = False
+        print("Debounced?")
 
     def alarm_snooze_event(self, channel):
-        if self.last_snooze_time is not None:
-            delta_time = datetime.datetime.now() - self.last_snooze_time
-            if delta_time.total_seconds() < 4:
-                print("Alarm OFF! Time to get up!!")
-                self.alarm_running_queue.put(False)
-                return
-        print("SNOOZING!! ZZZZ")
-        self.state = "snooze"
-        self.media.stop_stream()
-        self.alarm_running = False
-        radio_rest_time = datetime.datetime.now() + datetime.timedelta(minutes=7)
-        self.sched.add_event(radio_rest_time, self.alarm_event)
-        self.last_snooze_time = datetime.datetime.now()
-        self.alarm_running_queue.put(False)
-        # Magic debounce?
-        time.sleep(0.2)
-        if not self.webdev:
-            self.update_lcd_idle()
+        if not self.debouncing:
+            self.button_press_count += 1
+            print("Btn count: " + str(self.button_press_count))
+            if self.button_press_count == 1:
+                self.last_snooze_time = datetime.datetime.now()
+                # Check in three seconds if the button has been pressed more than once
+                threading.Timer(3, self.alarm_snooze_delay).start()
 
+            self.debouncing = True
+            threading.Timer(0.15, self.debounce).start()
+        else:
+            print("Bounce!")
+    
     def alarm_event(self):
         if self.state == "snooze":
             now = datetime.datetime.now()
