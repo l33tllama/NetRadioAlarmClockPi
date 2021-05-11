@@ -79,5 +79,5 @@ class ArduinoController():
         time_str += "-" + str(localtime.tm_hour).zfill(2)
         time_str += "-" + str(localtime.tm_min).zfill(2)
         time_str += "-" + str(localtime.tm_sec).zfill(2)
-        print("String to send: " + time_str)
+        #print("String to send: " + time_str)
         self.write_data("clki:" + time_str)

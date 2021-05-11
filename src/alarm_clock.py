@@ -5,6 +5,7 @@ import datetime
 from multimedia_controller import MultimmediaController
 from rpi_gpio import RPiGPIO
 from scheduler import Scheduler
+from text_to_speech import TextToSpeech
 import webserver
 import sys
 from radio_db import RadioDB
@@ -21,6 +22,7 @@ class NetRadioAlarmClock():
         self.alarm_running_queue = Queue()
         self.media = MultimmediaController()
         self.sched = Scheduler()
+        self.tts = TextToSpeech()
         self.schedule = {}
         #self.gcal = GoogleCalendar()
         self.arduino = ArduinoController(0x08, self.queue)
@@ -249,6 +251,13 @@ class NetRadioAlarmClock():
         # If button pressed only once - snoozing
         if self.button_press_count == 1:
             print("SNOOZING!! ZZZZ")
+            now = datetime.datetime.now()
+            h = str(now.hour)
+            m = str(now.minute)
+            if now.minute < 10:
+                m = "0" + m
+            text = "Snoozing. The time is now {hr} {min}".format(hr=h, min=m)
+            self.tts.say(text)
             self.state = "snooze"
             self.media.stop_stream()
             self.alarm_running = False
@@ -261,6 +270,7 @@ class NetRadioAlarmClock():
                 self.update_lcd_idle()
         elif self.button_press_count > 1:
             print("Alarm OFF! Time to get up!!")
+            self.tts.say("Alarm is now off. Time to get up!")
             self.alarm_running_queue.put(False)
             # Clear snooze event
             self.sched.remove_fixed_events()
@@ -282,20 +292,21 @@ class NetRadioAlarmClock():
                 threading.Timer(3, self.alarm_snooze_delay).start()
 
             self.debouncing = True
-            threading.Timer(0.15, self.debounce).start()
+            threading.Timer(0.2, self.debounce).start()
         else:
             print("Bounce!")
-    
+
     def alarm_event(self):
         if self.state == "snooze":
             now = datetime.datetime.now()
             now_h = now.hour
             now_m = now.minute
-            last_m = self.last_snooze_time.minute
-            last_h = self.last_snooze_time.hour
-            # If we snoozed in the same minute, don't alarm again (bit of a hack)
-            if now_h == last_h and now_m == last_m:
-                return
+            if self.last_snooze_time is not None:
+                last_m = self.last_snooze_time.minute
+                last_h = self.last_snooze_time.hour
+                # If we snoozed in the same minute, don't alarm again (bit of a hack)
+                if now_h == last_h and now_m == last_m:
+                    return
         self.state = "playing"
         self.media.play_stream()
         self.alarm_running = True
@@ -316,14 +327,14 @@ class NetRadioAlarmClock():
             self.sched.process_events()
             time.sleep(1)
             if running:
-                print("Running!")
+                #print("Running!")
                 self.update_lcd_playing("null")
                 self.gpio.snooze_button_led_on()
                 time.sleep(0.5)
                 self.gpio.snooze_button_lef_off()
                 time.sleep(0.5)
             else:
-                print("idle")
+                #print("idle")
                 self.arduino.update_lcd_idle()
                 time.sleep(4)
 

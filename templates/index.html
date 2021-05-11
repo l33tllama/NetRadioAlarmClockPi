@@ -5,10 +5,15 @@
     <link rel="stylesheet" href="/static/css/main.css">
     <link rel="stylesheet" href="/static/css/clock.css">
     <link rel="stylesheet" href="/static/css/media-controls.css">
+    <link rel="stylesheet" href="/static/css/normalize.css">
+<!--    <link rel="stylesheet" href="/static/css/jquery.mobile-1.4.5.css">-->
     <script src="static/js/jquery-3.4.1.min.js"></script>
+<!--    <script src="static/js/jquery.mobile-1.4.5.min.js"></script>-->
     <script src="static/js/bootstrap.bundle.min.js"></script>
     <script src="https://kit.fontawesome.com/a3cde3de90.js" crossorigin="anonymous"></script>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Internet Radio Alarm Clock</title>
 </head>
 <body>
@@ -17,13 +22,13 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav">
               <li id="nav-item-status" class="nav-item active">
-                <a class="nav-link" href="#" id="nav-status">Status <span class="sr-only">(current)</span></a>
+                <a class="nav-link" href="#" onclick="status_btn_handler()" id="nav-status">Status <span class="sr-only">(current)</span></a>
               </li>
               <li id="nav-item-stations" class="nav-item">
-                <a class="nav-link" href="#" id="nav-stations">Stations</a>
+                <a class="nav-link" href="#" onclick="stations_btn_handler()" id="nav-stations">Stations</a>
               </li>
                 <li id="nav-item-alarm-time" class="nav-item">
-                <a class="nav-link" href="#" id="nav-alarm-time">Alarm Time</a>
+                <a class="nav-link" href="#" onclick="alarm_time_btn_handler()" id="nav-alarm-time">Alarm Time</a>
               </li>
             </ul>
         </div>
@@ -172,9 +177,6 @@
           </div>
         </div>
         <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
-        <script type="text/javascript" charset="utf-8">
-
-        </script>
         <script src="static/js/main.js"></script>
         <script src="static/js/clock.js"></script>
         <script src="static/js/media-controls.js"></script>

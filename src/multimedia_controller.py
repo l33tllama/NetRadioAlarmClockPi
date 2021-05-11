@@ -70,7 +70,10 @@ class MultimmediaController():
         if icy_metaint_header is not None:
             metaint = int(icy_metaint_header)
             read_buffer = metaint + 255
-            content = response.read(read_buffer)
+            try:
+                content = response.read(read_buffer)
+            except ConnectionResetError as e:
+                print(e)
             content_str = ""
             for _byte in content:
                 content_str += chr(int(_byte))
@@ -105,6 +108,7 @@ class MultimmediaController():
         self.playing = False
 
     def set_volume(self, volume):
+        print("Setting volume: " + str(volume))
         self.volume = volume
         volume_scaled = (volume / 100) * 65536
         subprocess.call(["/usr/bin/amixer", "sset", "'Master'", str(volume_scaled)])

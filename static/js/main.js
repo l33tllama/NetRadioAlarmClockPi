@@ -67,7 +67,7 @@ function update_volume(volume){
     });
 }
 
-$("#play-stop-button").click(function(){
+function play_stop_btn_handler(){
     let cmd = "";
     if(radio_playing){
         cmd = "/stop_radio";
@@ -90,9 +90,10 @@ $("#play-stop-button").click(function(){
     }).fail(function (jqXHR, textStatus, errorThrown){
         console.log(errorThrown);
     })
-});
+}
 
-$("#day-all").click(function(){
+
+function day_all_btn_handler(){
     let checked = $("#day-all").prop("checked");
     if(checked){
         $("#day-monday").prop("checked", true);
@@ -107,7 +108,9 @@ $("#day-all").click(function(){
         $("#day-thursday").prop("checked", false);
         $("#day-friday").prop("checked", false);
     }
-})
+}
+
+
 
 function set_alarm_settings(){
     if(saved_schedule["enabled_weekdays"]["monday"]){
@@ -413,6 +416,65 @@ function refresh_stations() {
     })
 }
 
+function status_btn_handler(e){
+    e.preventDefault()
+    $("#status-page").show();
+    $("#stations-page").hide();
+    $("#alarm-time-page").hide();
+    $("#nav-item-status").addClass("active");
+    $("#nav-item-status").removeClass("active");
+    $("#nav-item-alarm-time").removeClass("active");
+}
+
+ function stations_btn_handler(){
+    //$("body").css("background", "red");
+    $("#stations-page").show();
+    $("#status-page").hide();
+    $("#alarm-time-page").hide();
+    $("#nav-item-stations").addClass("active");
+    $("#nav-item-stations").removeClass("active");
+    $("#nav-item-alarm-time").removeClass("active");
+}
+
+function alarm_time_btn_handler(){
+    $("#alarm-time-page").show();
+    $("#status-page").hide();
+    $("#stations-page").hide();
+    $("#nav-item-alarm-time").addClass("active");
+    $("#nav-item-stations").removeClass("active");
+    $("#nav-item-status").removeClass("active");
+}
+function add_station_btn_handler(){
+    let new_station_url = $("#new-station-url").val();
+    console.log("Form value: " + new_station_url);
+    let verified_url = "";
+    try {
+        verified_url = new URL(new_station_url);
+    } catch(e){
+        console.log("Error: " + e.message);
+        $("#url-error-msg").show();
+        $("#url-error-msg").html(e.message);
+    } finally {
+        if(verified_url != ""){
+            console.log(new_station_url);
+            $("#url-error-msg").hide();
+            send_station(new_station_url).then(function(resp){
+                //saved_stations.push(new_station_url);
+                refresh_stations()
+            });
+        }
+    }
+}
+
+function set_name_btn_handler() {
+    let new_station_name = $("#new-station-name").val();
+    let selected_station_url = saved_stations[selected_station_index][0];
+    update_station_name(selected_station_url, new_station_name).then(function(resp){
+        refresh_stations();
+        $("#station-name").html(new_station_name);
+    });
+}
+//$("body").css("background", "yellow");
 $(document).ready(function(){
     refresh_stations();
     get_schedule().then(function (resp){
@@ -426,6 +488,37 @@ $(document).ready(function(){
         console.log(e);
     })
     console.log("Loaded.");
+    //$("body").css("background", "yellow");
+
+    var ua = navigator.userAgent,
+        pickclick = (ua.match(/iPad/i) || ua.match(/iPhone/)) ? "touchstart" : "click";
+
+
+    $("#nav-status").click(status_btn_handler);
+    //$("#nav-status").bind("tap", status_btn_handler)
+
+    $("#nav-stations").on("click", function(e){
+        stations_btn_handler();
+    });
+    //$("#nav-stations").bind("tap", stations_btn_handler);
+    //$("#nav-stations").bind("tap", stations_btn_handler);
+
+    $("#nav-alarm-time").click(alarm_time_btn_handler);
+    $("#nav-alarm-time").bind("tap", alarm_time_btn_handler);
+
+    $("#add-station-btn").click(add_station_btn_handler);
+    $("#add-station-btn").bind("tap", add_station_btn_handler);
+
+    $("#set-name-btn").click(set_name_btn_handler);
+    $("#set-name-btn").bind("tap", set_name_btn_handler)
+
+    $("#play-stop-button").on("click tap", play_stop_btn_handler);
+    //$("#play-stop-button").bind("tap", play_stop_btn_handler);
+
+    $("#day-all").click(day_all_btn_handler);
+    $("#day-all").bind("tap", day_all_btn_handler);
+
+    //console.log("Station URL: " + verified_url);
 });
 
 function send_station(station_url){
@@ -459,61 +552,3 @@ function update_station_name(station_url, new_name){
     })
 }
 
-$("#add-station-btn").click(function(){
-    let new_station_url = $("#new-station-url").val();
-    console.log("Form value: " + new_station_url);
-    let verified_url = "";
-    try {
-        verified_url = new URL(new_station_url);
-    } catch(e){
-        console.log("Error: " + e.message);
-        $("#url-error-msg").show();
-        $("#url-error-msg").html(e.message);
-    } finally {
-        if(verified_url != ""){
-            console.log(new_station_url);
-            $("#url-error-msg").hide();
-            send_station(new_station_url).then(function(resp){
-                //saved_stations.push(new_station_url);
-                refresh_stations()
-            });
-        }
-    }
-    
-    console.log("Station URL: " + verified_url);
-});
-
-$("#set-name-btn").click(function () {
-    let new_station_name = $("#new-station-name").val();
-    let selected_station_url = saved_stations[selected_station_index][0];
-    update_station_name(selected_station_url, new_station_name).then(function(resp){
-        refresh_stations();
-        $("#station-name").html(new_station_name);
-    });
-});
-
-$("#nav-status").click(function(){
-    $("#status-page").show();
-    $("#stations-page").hide();
-    $("#alarm-time-page").hide();
-    $("#nav-item-status").addClass("active");
-    $("#nav-item-status").removeClass("active");
-    $("#nav-item-alarm-time").removeClass("active");
-});
-
-$("#nav-stations").click(function(){
-    $("#stations-page").show();
-    $("#status-page").hide();
-    $("#alarm-time-page").hide();
-    $("#nav-item-stations").addClass("active");
-    $("#nav-item-stations").removeClass("active");
-    $("#nav-item-alarm-time").removeClass("active");
-});
-$("#nav-alarm-time").click(function(){
-    $("#alarm-time-page").show();
-    $("#status-page").hide();
-    $("#stations-page").hide();
-    $("#nav-item-alarm-time").addClass("active");
-    $("#nav-item-stations").removeClass("active");
-    $("#nav-item-status").removeClass("active");
-});

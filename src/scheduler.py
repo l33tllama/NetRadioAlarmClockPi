@@ -34,7 +34,7 @@ class Scheduler():
             e_time = event["time"]
             e_str = "{0}, {1}, {2}".format(e_time.hour, e_time.minute, e_time.weekday())
             cur_str = "{0}, {1}, {2}".format(cur_time.hour, cur_time.minute, cur_time.weekday())
-            print("event: " + e_str + " - cur " + cur_str)
+            #print("event: " + e_str + " - cur " + cur_str)
             cur_tuple = (cur_time.hour, cur_time.minute, cur_time.weekday())
             if e_time.hour == cur_time.hour and \
                 e_time.minute == cur_time.minute and \
@@ -53,8 +53,8 @@ class Scheduler():
             e_time = event["time"]
             e_dow = event["day"]
             cur_tuple = (cur_time.hour, cur_time.minute, cur_time.weekday())
-            if e_dow == cur_tuple[2]:
-                print("Event on day " + str(e_dow) + " time " + str(e_time))
+            #if e_dow == cur_tuple[2]:
+            #    print("Event on day " + str(e_dow) + " time " + str(e_time))
             if e_time.hour == cur_time.hour and \
                 e_time.minute == cur_time.minute and \
                     e_dow == cur_time.weekday() and \
