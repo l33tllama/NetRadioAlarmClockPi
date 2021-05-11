@@ -15,3 +15,13 @@ The components consist of
 * Big snooze pushbutton
 * Rotary encoder for volume
 * 3D printed chassis - see [https://github.com/l33tllama/NetRadioAlarmClockCase](https://github.com/l33tllama/NetRadioAlarmClockCase)
+
+The main Python program consists of several files and classes containing the functionality.
+
+In code, it uses:
+* A SQLite database for storing alarms and radio stations.
+* `smbus2` for I2C communications. A very good way to communicate to Arduino via Python. You just need a logic voltage level shifter.
+* The Linux command-line program `mpg123` to stream radio station URLs.
+* My own scheduler class that calls functions at certain times. Very basic but it works.
+* The Python library [https://github.com/asrp/python-espeak](https://github.com/asrp/python-espeak) for text to speech for alerting some events.
+* Flask and Flask SocketIO for the webserver and websocket connection for realtime control.
