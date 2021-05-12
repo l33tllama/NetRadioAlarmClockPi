@@ -272,6 +272,7 @@ class NetRadioAlarmClock():
             print("Alarm OFF! Time to get up!!")
             self.tts.say("Alarm is now off. Time to get up!")
             self.alarm_running_queue.put(False)
+            self.media.stop_stream()
             # Clear snooze event
             self.sched.remove_fixed_events()
             self.button_press_count = 0
