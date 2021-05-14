@@ -233,7 +233,7 @@ class NetRadioAlarmClock():
         #title = self.mpdc.get_title()
 
         station = self.media.get_station_title()
-        print("station: " + station)
+        #print("station: " + station)
 
         self.arduino.update_lcd_playing(station, "", "")
         #one_second = datetime.datetime.now() + datetime.timedelta(seconds=1)

@@ -48,7 +48,7 @@ class ArduinoController():
         #   print("Can't write - i2c lock")
 
     def update_lcd_playing(self, station_name, artist, title):
-        print("Updating radio data: {stat} {art} {tit}".format(stat=station_name, art=artist, tit=title ) )
+        #print("Updating radio data: {stat} {art} {tit}".format(stat=station_name, art=artist, tit=title ) )
         station_name = station_name[:33]
         artist = artist[:33]
         title = title[:33]
