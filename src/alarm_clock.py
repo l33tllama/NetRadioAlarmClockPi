@@ -247,6 +247,7 @@ class NetRadioAlarmClock():
         
         #if self.state == "idle":
         #    self.sched.schedule_event(one_second, self.update_lcd_idle)
+
     def alarm_snooze_delay(self):
         # If button pressed only once - snoozing
         if self.button_press_count == 1:
@@ -293,7 +294,7 @@ class NetRadioAlarmClock():
                 threading.Timer(3, self.alarm_snooze_delay).start()
 
             self.debouncing = True
-            threading.Timer(0.2, self.debounce).start()
+            threading.Timer(0.4, self.debounce).start()
         else:
             print("Bounce!")
 

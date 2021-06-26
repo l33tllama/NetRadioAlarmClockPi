@@ -60,12 +60,21 @@ class MultimmediaController():
     def get_station_title(self, station_url=""):
         header = {'Icy-MetaData': 1}
         request = None
+        response = None
         if station_url != "":
             request = urllib.request.Request(station_url, headers=header)
         else:
             station_url = self.stream_url
             request = urllib.request.Request(station_url, headers=header)
-        response = urllib.request.urlopen(request)
+        try:
+            response = urllib.request.urlopen(request)
+        except urllib.error.URLError as e:
+            print(e)
+            # Try again..
+            return "URLError"
+        except TimeOutError as e:
+            print(e)
+            return "Timeout"
         icy_metaint_header = response.headers.get('icy-metaint')
         if icy_metaint_header is not None:
             metaint = int(icy_metaint_header)
