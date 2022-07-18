@@ -70,15 +70,16 @@ class MultimmediaController():
             response = urllib.request.urlopen(request)
         except urllib.error.URLError as e:
             print(e)
-            # Try again..
             return "URLError"
         except TimeOutError as e:
             print(e)
             return "Timeout"
         icy_metaint_header = response.headers.get('icy-metaint')
+
         if icy_metaint_header is not None:
             metaint = int(icy_metaint_header)
             read_buffer = metaint + 255
+            content = []
             try:
                 content = response.read(read_buffer)
             except ConnectionResetError as e:
