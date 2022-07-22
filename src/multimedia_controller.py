@@ -71,9 +71,6 @@ class MultimmediaController():
         except urllib.error.URLError as e:
             print(e)
             return "URLError"
-        except TimeOutError as e:
-            print(e)
-            return "Timeout"
         icy_metaint_header = response.headers.get('icy-metaint')
 
         if icy_metaint_header is not None:
